@@ -4,7 +4,7 @@
  platform-$(CONFIG_MACH_NINTENDO64)	+= n64/
  platform-$(CONFIG_PIC32MZDA)		+= pic32/
  platform-$(CONFIG_RALINK)		+= ralink/
-+platform-$(CONFIG_RTK_SOC_RTL9607C)     += rtl9607c/
++platform-$(RTL9607C)     += rtl9607c/
  platform-$(CONFIG_MIKROTIK_RB532)	+= rb532/
  platform-$(CONFIG_MACH_REALTEK_RTL)	+= rtl838x/
  platform-$(CONFIG_SGI_IP22)		+= sgi-ip22/

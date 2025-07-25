@@ -1,0 +1,207 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+#include <dt-bindings/interrupt-controller/mips-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/soc/9607xc_irqs.h>
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	compatible = "realtek,rtl9607c-soc";
+
+	clocks {
+		apro_soc_clk: apro_soc_clk {
+			compatible = "realtek,apro-ocpclk";
+			#clock-cells = <1>;
+		};
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			compatible = "mti,interaptiv";
+			device_type = "cpu";
+			reg = <0>;
+		};
+	};
+
+	cpuintc: cpuintc@0 {
+		#address-cells = <0>;
+		#interrupt-cells = <1>;
+		interrupt-controller;
+		compatible = "mti,cpu-interrupt-controller";
+	};
+
+
+
+	ictl: ictl@1f000000 {
+		compatible = "realtek,dw-apb-ictl";
+		reg = <0x1f000000 0x100>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&cpuintc>;
+		interrupts = <2>;
+	};
+
+	gic: interrupt-controller@1fbc0000 {
+		compatible = "mti,gic";
+		reg = <0x1fbc0000 0x20000>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&cpuintc>;
+		interrupts = <2>;
+		timer {
+			compatible = "mti,gic-timer";
+			interrupts = <GIC_LOCAL 1 IRQ_TYPE_NONE>;
+			clocks = <&apro_soc_clk 0>;
+			clock-frequency = <900000000>;
+	};
+	};
+
+	timer: timer@18003200 {
+		compatible = "realtek,ext";
+		reg = <0x18003200 0xa0>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED GIC_EXT_TC0 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	soctimer {
+		compatible = "realtek,soc-timer";
+		clocks = <&apro_soc_clk 1>;
+		reg = <
+			0x18003280 0x10
+			0x18003200 0x10
+			0x18003210 0x10
+			0x18003220 0x10
+			0x18003230 0x10 /*timer 4/5 are used by voip*/
+			>;
+
+		interrupt-parent = <&gic>;
+		interrupts = <
+			GIC_SHARED GIC_EXT_TC7 IRQ_TYPE_LEVEL_HIGH
+			GIC_SHARED GIC_EXT_TC0 IRQ_TYPE_LEVEL_HIGH
+			GIC_SHARED GIC_EXT_TC1 IRQ_TYPE_LEVEL_HIGH
+			GIC_SHARED GIC_EXT_TC2 IRQ_TYPE_LEVEL_HIGH
+			GIC_SHARED GIC_EXT_TC3 IRQ_TYPE_LEVEL_HIGH
+			>;
+	};
+
+	uart0: serial@18002000 {
+		compatible = "ns16550a";
+		reg = <0x18002000 0x100>;
+		reg-shift = <2>;
+		reg-io-width = <1>;
+		clock-frequency = <197235200>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED GIC_EXT_UART0 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	switch: switch@0 {
+		compatible = "realtek,switch";
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED GIC_EXT_SWCORE IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	eth: ethernet@0 {
+		compatible = "realtek,gmac";
+		gmachw0: gmac0 {
+			reg = <0x18012000 0x2000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED GIC_EXT_INT0_GMAC0 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		gmachw1: gmac1 {
+			reg = <0x18014000 0x2000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED GIC_EXT_INT0_GMAC1 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		gmachw2: gmac2 {
+			reg = <0x18016000 0x2000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED GIC_EXT_INT0_GMAC2 IRQ_TYPE_LEVEL_HIGH>;
+		};
+	};
+
+	usb0: usb@0 {
+		compatible = "realtek,usb";
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED GIC_EXT_USB_2 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	usb1: usb@1 {
+		compatible = "realtek,usb";
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED GIC_EXT_USBHOSTP2 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	usb2: usb@2 {
+		compatible = "realtek,usb";
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED GIC_EXT_USB_23 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	ext_gphy: ext_gphy{
+		compatible = "realtek,ext-gphy";
+		num-cells = <2>;
+		/* eth_mapping_phyAddr = <Port#0 PhyAddr#0>, ... ,<Port#n PhyAddr#n>; */
+		port_mapping_phyAddr = <0 0>;
+	};
+
+	gpio-controller@1b000038 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "realtek,gpio";
+		reg = <0x1B000038 0xC>,
+			  <0x18003308 0x54>;
+
+		gpio0: bank@0 {
+			gpio-controller;
+			interrupt-controller;
+			reg = <0>;
+			ngpios = <32>;
+			#gpio-cells = <2>;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED GIC_EXT_GPIO_ABCD IRQ_TYPE_LEVEL_HIGH>;
+			/*gpio-ranges = <&pinctrl 0 0 32>;*/
+		};
+
+		gpio1: bank@1 {
+			gpio-controller;
+			interrupt-controller;
+			reg = <1>;
+			ngpios = <32>;
+			#gpio-cells = <2>;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED GIC_EXT_GPIO_EFGH IRQ_TYPE_LEVEL_HIGH>;
+			/*gpio-ranges = <&pinctrl 0 32 32>;*/
+		};
+
+		gpio2: bank@2 {
+			gpio-controller;
+			interrupt-controller;
+			reg = <2>;
+			ngpios = <32>;
+			#gpio-cells = <2>;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED GIC_EXT_GPIO_JKMN IRQ_TYPE_LEVEL_HIGH>;
+			/*gpio-ranges = <&pinctrl 0 64 32>;*/
+		};
+	};
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	/* Create a initramfs region at 0x83000000, and the size is 16MB. */
+	chosen {
+		bootargs = "earlycon";
+		stdout-path = "serial0:115200n8";
+	};
+};

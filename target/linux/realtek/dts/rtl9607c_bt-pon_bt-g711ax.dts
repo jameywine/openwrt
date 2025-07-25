@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MI
+
+/dts-v1/;
+
+#include "rtl9607c.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+	compatible = "bt-pon,bt-g711ax", "realtek,rtl9607c-soc";
+
+	model = "BT-PON BT-G711AX";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x10000000>;
+		};
+	spinand@0 {
+		compatible = "spi-nand";
+		reg = <0x0>;
+		spi-max-frequency = <10000000>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "boot";
+				reg = <0x00000000 0xe0000>;
+				read-only;
+			};
+			partition@e0000 {
+				label = "env";
+				reg = <0x000e0000 0x20000>;
+			};
+			partition@100000 {
+				label = "env2";
+				reg = <0x00100000 0x20000>;
+			};
+			partition@120000 {
+				label = "static_conf";
+				reg = <0x00120000 0x20000>;
+			};
+			partition@140000 {
+				label = "ubi_device";
+				reg = <0x00140000 0x7c40000>;
+			};
+		}
+	};
+	leds {
+		compatible = "gpio-leds";
+		led_pwr_g {
+			label = "LED_PWR_G";
+			gpios = <4 0x0f GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+		led_wps_g {
+			label = "LED_WPS_G";
+			gpios = <5 0x18 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+		led_ppp_g {
+			label = "LED_PPP_G";
+			gpios = <5 0x19 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+		led_fxs {
+			label = "LED_FXS";
+			gpios = <5 0x06 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		led_usb0 {
+			label = "LED_USB0";
+			gpios = <4 0x14 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "usbdev";
+		};
+		led_usb1 {
+			label = "LED_USB1";
+			gpios = <5 0x01 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "usbdev";
+		};
+	};
+	leds_gpio_number {
+		LED_EPHY0 {
+			linux,led_gpio = "8";
+		};
+		LED_EPHY1 {
+			linux,led_gpio = "9";
+		};
+		LED_EPHY2 {
+			linux,led_gpio = "35";
+		};
+		LED_EPHY3 {
+			linux,led_gpio = "12";
+		};
+		LED_PON {
+			linux,led_gpio = "10";
+		};
+		LED_LOS {
+			linux,led_gpio = "21";
+		};
+	};
+	gpio-keys {
+		compatible = "gpio-keys";
+		autorepeat;
+		btn_reset {
+			label = "btn,reset";
+			gpios = <5 0x05 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_RESTART>;
+		};
+		btn_wps {
+			label = "btn,wps";
+			gpios = <5 0x02 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_WPS_BUTTON>;
+		};
+		btn_wifi {
+			label = "btn,wifi";
+			gpios = <5 0x04 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_WLAN>;
+		};
+	};
+	board_setting {
+		pci0_gpio_rst = <&gpio1 8 GPIO_ACTIVE_HIGH>;
+		pci1_gpio_rst = <&gpio1 7 GPIO_ACTIVE_HIGH>;
+	};
+	gpio-reset {
+		compatible = "linux,gpio-reset";
+		pcie0_pwr_reset {
+			#reset-cells = <0>;
+			gpios = <5 0x1c GPIO_ACTIVE_HIGH>;
+			asserted-state = <0>;
+			duration-ms = <64>;
+		};
+	};
+};

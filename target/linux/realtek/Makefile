@@ -7,7 +7,11 @@ BOARD:=realtek
 BOARDNAME:=Realtek MIPS
 DEVICE_TYPE:=basic
 FEATURES:=ramdisk squashfs
+<<<<<<< HEAD
 SUBTARGETS:=rtl838x rtl839x rtl930x rtl930x_nand rtl931x rtl931x_nand
+=======
+SUBTARGETS:=rtl838x rtl839x rtl930x rtl930x_nand rtl931x rtl931x_nand rtl9607c
+>>>>>>> 3ea3f6c02f (<area>: add arch files for rtl9607c)
 
 KERNEL_PATCHVER:=6.12
 

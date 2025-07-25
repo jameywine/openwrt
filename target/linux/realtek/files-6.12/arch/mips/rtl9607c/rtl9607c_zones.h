@@ -1,0 +1,10 @@
+#ifndef _RTL9607C_ZONES_H_
+#define _RTL9607C_ZONES_H_
+
+#define ZONE1_SIZE    0x10000000
+#define ZONE2_BASE    0x20000000
+#define ZONE2_PHY     0x10000000
+#define ZONE2_OFF     (0x80000000 + ZONE2_PHY - ZONE2_BASE)
+#define ZONE2_MAX     ((256<<20) -1)
+
+#endif /* _RTL9607C_ZONES_H_ */

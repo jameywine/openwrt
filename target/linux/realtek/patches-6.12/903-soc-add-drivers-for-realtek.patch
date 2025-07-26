@@ -1,0 +1,10 @@
+--- a/drivers/soc/Makefile
++++ b/drivers/soc/Makefile
+@@ -26,6 +26,7 @@ obj-y				+= nuvoton/
+ obj-y				+= pxa/
+ obj-y				+= amlogic/
+ obj-y				+= qcom/
++obj-$(CONFIG_RTK_SOC)		+= realtek/
+ obj-y				+= renesas/
+ obj-y				+= rockchip/
+ obj-$(CONFIG_SOC_SAMSUNG)	+= samsung/

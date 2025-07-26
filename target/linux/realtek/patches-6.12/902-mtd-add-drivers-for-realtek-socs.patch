@@ -1,0 +1,47 @@
+--- a/drivers/mtd/nand/Kconfig
++++ b/drivers/mtd/nand/Kconfig
+@@ -67,4 +67,37 @@ config MTD_NAND_ECC_MEDIATEK
+ 
+ endmenu
+ 
++menuconfig MTD_RTK_NAND
++	tristate "RTK NAND Device Support"
++
++if MTD_RTK_NAND
++
++config MTD_SPI_NAND_RTK
++	bool "Realtek SPI NAND Flash Driver"
++	depends on MTD_NAND_CORE
++
++config RTK_SPI_NAND_GEN3
++	bool "SPI NAND driver gen 3"
++	depends on MTD_SPI_NAND_RTK
++
++config RTK_ECC_GEN2
++	bool "ECC driver gen 2"
++	depends on MTD_SPI_NAND_RTK
++
++config UBI_MTD_RTK_PATCH
++	depends on MTD_SPI_NAND_RTK
++	bool "Add UBI patch"
++	default y if UBIFS_FS
++	help
++	 Add some behavior patches for UBI, enable it if use UBI/UBIFS
++
++config MAX_ALLOWED_ERR_IN_BLANK_PAGE
++	depends on MTD_SPI_NAND_RTK
++	int "Max allowed bit error in ECC chunk"
++	default 4
++	help
++	 Allow number of bits flipped in a ECC chunk of blank page
++
++endif
++
+ endmenu
+--- a/drivers/mtd/nand/Makefile
++++ b/drivers/mtd/nand/Makefile
+@@ -17,3 +17,4 @@ nandcore-$(CONFIG_MTD_NAND_ECC) += ecc.o
+ nandcore-$(CONFIG_MTD_NAND_ECC_SW_HAMMING) += ecc-sw-hamming.o
+ nandcore-$(CONFIG_MTD_NAND_ECC_SW_BCH) += ecc-sw-bch.o
+ nandcore-$(CONFIG_MTD_NAND_ECC_MXIC) += ecc-mxic.o
++obj-$(CONFIG_MTD_SPI_NAND_RTK)		+= luna_mtd_nand/

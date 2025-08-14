@@ -81,15 +81,6 @@ static int reboot_reason_proc_write(struct file *filp, const char *buf, size_t c
 	return -EFAULT;
 }
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(5,0,0)
-static const struct file_operations fops_reboot_reason = {
-	.open = reboot_reason_single_open,
-	.write = reboot_reason_proc_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-#else
 static struct proc_ops fops_reboot_reason = {
 	.proc_open           = reboot_reason_single_open,
 	.proc_write          = reboot_reason_proc_write,
@@ -97,7 +88,7 @@ static struct proc_ops fops_reboot_reason = {
 	.proc_lseek         = seq_lseek,
 	.proc_release        = single_release,
 };
-#endif
+
 
 static int __init reboot_reason_init_early(void) {
 	last_reboot_reason = rtk_soc_reboot_reason_get();

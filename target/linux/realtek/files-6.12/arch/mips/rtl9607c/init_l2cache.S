@@ -28,17 +28,25 @@
 #define CP0_EBASE       $15,1
 #endif
 #define CP0_CONFIG0     $16,0
+#ifndef CP0_CONFIG1
 #define CP0_CONFIG1     $16,1
+#endif
+#ifndef CP0_CONFIG2
 #define CP0_CONFIG2     $16,2
+#endif
 #ifndef CP0_CONFIG3
 #define CP0_CONFIG3     $16,3
 #endif
 #define CP0_CONFIG7     $16,7
+#ifndef CP0_DTAGLO
 #define CP0_DTAGLO      $28,2
+#endif
 #define CP0_TAGLO2      $28,4
 #define CP0_DATALO      $28,1
 #define CP0_IDATALO     $28,1
+#ifndef CP0_DDATALO
 #define CP0_DDATALO     $28,3
+#endif
 #define CP0_DATALO2     $28,5
 #define CP0_DATAHI      $29,1
 #define CP0_DATAHI2     $29,5

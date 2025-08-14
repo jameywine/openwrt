@@ -240,7 +240,7 @@ spi_nand_flash_info_t micron_chip_info[] = {
 #endif // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 
 #if __DEVICE_USING_QIO
-__SECTION_INIT_PHASE void
+__SECTION_INIT_PHASE static void
 micron_quad_enable(u32_t cs)
 {
     u32_t feature_addr=0xB0;
@@ -251,7 +251,7 @@ micron_quad_enable(u32_t cs)
 #endif
 
 
-__SECTION_INIT_PHASE u32_t
+__SECTION_INIT_PHASE static u32_t
 micron_read_id(u32_t cs)
 {
     u32_t man_addr = 0x00;
@@ -261,50 +261,50 @@ micron_read_id(u32_t cs)
     return ((ret>>16)&0xFFFF);
 }
 
-__SECTION_INIT_PHASE void
+__SECTION_INIT_PHASE static void
 micron_select_die(u32_t cs, u32_t die_num)
 {
     nsu_set_feature_reg(cs, 0xD0, (die_num<<6));
 }
 
 #if defined(NSU_DRIVER_IN_ROM) || (defined(CONFIG_UNDER_UBOOT) && defined(CONFIG_SPI_NAND_FLASH_INIT_FIRST))
-__SECTION_RUNTIME void
+__SECTION_RUNTIME static void
 micron_stack2die_page_read(spi_nand_flash_info_t *info, void *dma_addr, u32_t blk_pge_addr)
 {
     snaf_page_read(info, dma_addr, nsu_s2d_addr_trans(info, blk_pge_addr, micron_select_die));
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 micron_stack2die_page_write(spi_nand_flash_info_t *info, void *dma_addr, u32_t blk_pge_addr)
 {
     return snaf_page_write(info, dma_addr, nsu_s2d_addr_trans(info, blk_pge_addr, micron_select_die));
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 micron_stack2die_page_read_with_ecc_decode(spi_nand_flash_info_t *info, void *dma_addr, u32_t blk_pge_addr, void *p_eccbuf)
 {
     return snaf_page_read_with_ecc_decode(info, dma_addr, nsu_s2d_addr_trans(info, blk_pge_addr, micron_select_die), p_eccbuf);
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 micron_stack2die_page_write_with_ecc_encode(spi_nand_flash_info_t *info, void *dma_addr, u32_t blk_pge_addr, void *p_eccbuf)
 {
     return snaf_page_write_with_ecc_encode(info, dma_addr, nsu_s2d_addr_trans(info, blk_pge_addr, micron_select_die), p_eccbuf);
 }
 
-__SECTION_RUNTIME void
+__SECTION_RUNTIME static void
 micron_stack2die_pio_read_data(spi_nand_flash_info_t *info, void *ram_addr, u32_t wr_bytes, u32_t blk_pge_addr, u32_t col_addr)
 {
     snaf_pio_read_data(info, ram_addr, wr_bytes, nsu_s2d_addr_trans(info, blk_pge_addr, micron_select_die), col_addr);
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 micron_stack2die_pio_write_data(spi_nand_flash_info_t *info, void *ram_addr, u32_t wr_bytes, u32_t blk_pge_addr, u32_t col_addr)
 {
     return snaf_pio_write_data(info, ram_addr, wr_bytes, nsu_s2d_addr_trans(info, blk_pge_addr, micron_select_die), col_addr);
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 micron_stack2die_block_erase(spi_nand_flash_info_t *info, u32_t blk_pge_addr)
 {
     return nsu_block_erase(info, nsu_s2d_addr_trans(info, blk_pge_addr, micron_select_die));
@@ -323,7 +323,7 @@ spi_nand_model_info_t micron_stack2die_model = {
 };
 #endif //defined(NSU_DRIVER_IN_ROM) || (defined(CONFIG_UNDER_UBOOT) && defined(CONFIG_SPI_NAND_FLASH_INIT_FIRST))
 
-__SECTION_INIT_PHASE void
+__SECTION_INIT_PHASE static void
 micron_stack2die_specific_setting(u32_t cs)
 {
     //For StackDie, preset the Die1's status as Die0
@@ -336,7 +336,7 @@ micron_stack2die_specific_setting(u32_t cs)
 }
 
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_FIRST
-__SECTION_INIT_PHASE spi_nand_flash_info_t *
+__SECTION_INIT_PHASE static spi_nand_flash_info_t *
 probe_micron_spi_nand_chip(void)
 {
     nsu_reset_spi_nand_chip(0);    
@@ -377,7 +377,7 @@ probe_micron_spi_nand_chip(void)
 REG_SPI_NAND_PROBE_FUNC(probe_micron_spi_nand_chip);
 #endif   // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_REST
-int
+static int
 micron_init_rest(void)
 {
     u32_t cs=1; 

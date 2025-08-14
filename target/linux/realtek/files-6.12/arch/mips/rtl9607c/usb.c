@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <asm/delay.h>
@@ -6,11 +8,11 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/platform_device.h>
-#include <dal/rtl9607c/dal_rtl9607c_switch.h>
-#include <common/error.h>
-#include <rtk/switch.h>
+#include <asm/mach-rtl960xc/mach-rtl960xc.h>
 
-#include "rtl9607c_regs.h"
+extern struct rtl96xx_soc_info soc_info;
+
+#define REG32(reg)    (*(volatile unsigned int   *)(reg))
 
 #define RTK_USB_PHY_VER "v1.1 (2021.03.10)"
 #define RTK_USB2_PHY_VER_REVC "v3.0 (2022.01.05)"
@@ -101,6 +103,8 @@ struct rtk_usb_phy {
 	int (*phy_write)(struct rtk_usb_phy *phy, u8 port, u8 reg, u16 val);
 	int (*phy_get_next)(struct rtk_usb_phy *phy, u8 port, int *reg);
 };
+
+int rtk_usb_phy_register(struct rtk_usb_phy *phy);
 
 __weak struct proc_dir_entry *realtek_proc;
 
@@ -224,8 +228,8 @@ static struct resource bsp_usb_ohci_resource[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start = BSP_USB_2_IRQ,
-		.end   = BSP_USB_2_IRQ,
+		.start = RTL_USB_2_IRQ,
+		.end   = RTL_USB_2_IRQ,
 		.flags = IORESOURCE_IRQ,
 	}
 };
@@ -249,8 +253,8 @@ static struct resource bsp_usb_ohci2_resource[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start = BSP_USBHOSTP2_IRQ,
-		.end   = BSP_USBHOSTP2_IRQ,
+		.start = RTL_USBHOSTP2_IRQ,
+		.end   = RTL_USBHOSTP2_IRQ,
 		.flags = IORESOURCE_IRQ,
 	}
 };
@@ -276,8 +280,8 @@ static struct resource bsp_usb_ehci_resource[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start = BSP_USB_2_IRQ,
-		.end   = BSP_USB_2_IRQ,
+		.start = RTL_USB_2_IRQ,
+		.end   = RTL_USB_2_IRQ,
 		.flags = IORESOURCE_IRQ,
 	}
 };
@@ -304,8 +308,8 @@ static struct resource bsp_usb_ehci2_resource[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start = BSP_USBHOSTP2_IRQ,
-		.end   = BSP_USBHOSTP2_IRQ,
+		.start = RTL_USBHOSTP2_IRQ,
+		.end   = RTL_USBHOSTP2_IRQ,
 		.flags = IORESOURCE_IRQ,
 	}
 };
@@ -330,8 +334,8 @@ static struct resource bsp_xhci_resource[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	{
-		.start = BSP_USB_23_IRQ,
-		.end = BSP_USB_23_IRQ,
+		.start = RTL_USB_23_IRQ,
+		.end = RTL_USB_23_IRQ,
 		.flags = IORESOURCE_IRQ,
 	}
 };
@@ -865,44 +869,32 @@ static int __init bsp_usb_init_9603c(void)
 	return 0;
 }
 
-__weak int bsp_usb_init_9603cvd(void)
-{
-	printk("%s(%d): \n",__func__,__LINE__);
-	return -ENODEV;
-}
+// __weak int bsp_usb_init_9603cvd(void)
+// {
+// 	printk("%s(%d): \n",__func__,__LINE__);
+// 	return -ENODEV;
+// }
 
 static int __init bsp_usb_init(void)
 {
-	uint32  chipId,rev,subType  = 0;
-	if (rtk_switch_version_get(&chipId,&rev,&subType) == RT_ERR_OK) {
-		//printk("\n %s %d\n",__FUNCTION__,__LINE__);
-		if ((chipId==RTL9607C_CHIP_ID) && (rev==CHIP_REV_ID_C)) {
-			printk("USB: Using revC phy\n");
-			#if defined(CONFIG_USB_XHCI_HCD)
-			xhci_u3phy.ver = RTK_USB3_PHY_VER_REVC;
-			xhci_u3phy.param_data = u3phy_data_revC;
-			xhci_u3phy.param_len = ARRAY_SIZE(u3phy_data_revC);
-			xhci_u2phy.ver = RTK_USB2_PHY_VER_REVC;
-			xhci_u2phy.param_data = u2phy_data_revC;
-			xhci_u2phy.param_len = ARRAY_SIZE(u2phy_data_revC);
-			#endif
-			ehci_phy.ver = RTK_USB2_PHY_VER_REVC;
-			ehci_phy.param_data = u2phy_data_revC;
-			ehci_phy.param_len = ARRAY_SIZE(u2phy_data_revC);
-			ehci2_phy.ver = RTK_USB2_PHY_VER_REVC;
-			ehci2_phy.param_data = u2phy_data_revC;
-			ehci2_phy.param_len = ARRAY_SIZE(u2phy_data_revC);
-		}
-	}
+	if (soc_info.family == RTL9607_FAMILY_ID) {
+		printk("USB: Using revC phy\n");
+		#if defined(CONFIG_USB_XHCI_HCD)
+		xhci_u3phy.ver = RTK_USB3_PHY_VER_REVC;
+		xhci_u3phy.param_data = u3phy_data_revC;
+		xhci_u3phy.param_len = ARRAY_SIZE(u3phy_data_revC);
+		xhci_u2phy.ver = RTK_USB2_PHY_VER_REVC;
+		xhci_u2phy.param_data = u2phy_data_revC;
+		xhci_u2phy.param_len = ARRAY_SIZE(u2phy_data_revC);
+		#endif
+		ehci_phy.ver = RTK_USB2_PHY_VER_REVC;
+		ehci_phy.param_data = u2phy_data_revC;
+		ehci_phy.param_len = ARRAY_SIZE(u2phy_data_revC);
+		ehci2_phy.ver = RTK_USB2_PHY_VER_REVC;
+		ehci2_phy.param_data = u2phy_data_revC;
+		ehci2_phy.param_len = ARRAY_SIZE(u2phy_data_revC);
 
-#if defined(CONFIG_RTK_SOC_RTL8198D)
-	return bsp_usb_init_9607c();
-#endif
-
-	if (chipId == RTL9603CVD_CHIP_ID) {
-		return bsp_usb_init_9603cvd();
-	} else {
-		switch(subType) {
+		switch(soc_info.subtype) {
 		case RTL9607C_CHIP_SUB_TYPE_RTL9603CT:
 		case RTL9607C_CHIP_SUB_TYPE_RTL9603C_VA4:
 		case RTL9607C_CHIP_SUB_TYPE_RTL9603C_VA5:
@@ -925,7 +917,8 @@ static int __init bsp_usb_init(void)
 			return bsp_usb_init_9607c();
 		}
 	}
-	printk("USB not initialized, %x/%x/%x\n",chipId,rev,subType);
+
+	pr_info("USB not initialized, %x\n",soc_info.id);
 	return -ENXIO;
 }
 

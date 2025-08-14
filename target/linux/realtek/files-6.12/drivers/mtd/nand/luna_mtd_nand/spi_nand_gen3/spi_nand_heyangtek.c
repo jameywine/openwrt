@@ -214,7 +214,7 @@ spi_nand_flash_info_t heyangtek_chip_info[] = {
 
 
 #if __DEVICE_USING_QIO
-__SECTION_INIT_PHASE void
+__SECTION_INIT_PHASE static void
 heyangtek_quad_enable(u32_t cs)
 {
     u32_t feature_addr=0xB0;
@@ -224,7 +224,7 @@ heyangtek_quad_enable(u32_t cs)
 }
 #endif
 
-__SECTION_INIT_PHASE u32_t
+__SECTION_INIT_PHASE static u32_t
 heyangtek_read_id(u32_t cs)
 {
     u32_t w_io_len = IO_WIDTH_LEN(SIO_WIDTH,CMR_LEN(2));
@@ -234,7 +234,7 @@ heyangtek_read_id(u32_t cs)
 }
 
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_FIRST
-__SECTION_INIT_PHASE spi_nand_flash_info_t *
+__SECTION_INIT_PHASE static spi_nand_flash_info_t *
 probe_heyangtek_spi_nand_chip(void)
 {
     nsu_reset_spi_nand_chip(0);
@@ -286,7 +286,7 @@ probe_heyangtek_spi_nand_chip(void)
 REG_SPI_NAND_PROBE_FUNC(probe_heyangtek_spi_nand_chip);
 #endif   // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_REST
-int heyangtek_init_rest(void)
+static int heyangtek_init_rest(void)
 {
     u32_t cs=1;
 

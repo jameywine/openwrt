@@ -281,7 +281,7 @@ spi_nand_flash_info_t mxic_chip_info[] = {
 #endif // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 
 #if __DEVICE_USING_QIO
-__SECTION_INIT_PHASE void
+__SECTION_INIT_PHASE static void
 mxic_quad_enable(u32_t cs)
 {
     u32_t feature_addr=0xB0;
@@ -291,7 +291,7 @@ mxic_quad_enable(u32_t cs)
 }
 #endif
 
-__SECTION_INIT_PHASE u32_t
+__SECTION_INIT_PHASE static u32_t
 mxic_read_id(u32_t cs)
 {
     u32_t dummy = 0x00;
@@ -303,7 +303,7 @@ mxic_read_id(u32_t cs)
 }
 
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_FIRST
-__SECTION_INIT_PHASE spi_nand_flash_info_t *
+__SECTION_INIT_PHASE static spi_nand_flash_info_t *
 probe_mxic_spi_nand_chip(void)
 {
     nsu_reset_spi_nand_chip(0);
@@ -357,7 +357,7 @@ probe_mxic_spi_nand_chip(void)
 REG_SPI_NAND_PROBE_FUNC(probe_mxic_spi_nand_chip);
 #endif   // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_REST
-int
+static int
 mxic_init_rest(void)
 {
     u32_t cs=1;

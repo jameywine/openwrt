@@ -23,7 +23,7 @@ spin_flist += spi_nand_fmsh.o
 spin_flist += spi_nand_xtx.o
 spin_flist += spi_nand_9Chapters.o
 spin_flist += spi_nand_umtek.o
-ifeq ($(CONFIG_RTK_SOC_RTL9607C), y)
+ifeq ($(RTL9607C), y)
 spin_flist += spi_nand_dhc.o
 endif
 spin_flist := $(addprefix $(SPI_NAND_PATH)/,$(spin_flist))

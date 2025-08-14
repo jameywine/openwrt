@@ -276,7 +276,7 @@ spi_nand_flash_info_t esmt_chip_info[] = {
 };
 #endif // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 
-__SECTION_INIT_PHASE u32_t 
+__SECTION_INIT_PHASE static u32_t
 esmt_read_id(u32_t cs)
 {
     u32_t dummy = 0x00;
@@ -287,13 +287,13 @@ esmt_read_id(u32_t cs)
     return ((ret>>16)&0xFFFF);
 }
 
-__SECTION_RUNTIME void
+__SECTION_RUNTIME static void
 esmt_ecc_encode(u32_t ecc_ability, void *dma_addr, void *fake_ptr_cs)
 {
 	;
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 esmt_ecc_decode(u32_t ecc_ability, void *dma_addr, void *fake_ptr_cs)
 {
 	u32_t cs = 0;
@@ -311,50 +311,50 @@ esmt_ecc_decode(u32_t ecc_ability, void *dma_addr, void *fake_ptr_cs)
 		return ECC_USE_ODE_ERR;
 }
 
-__SECTION_RUNTIME void
+__SECTION_RUNTIME static void
 esmt_select_die(u32_t cs, u32_t die_num)
 {
     nsu_send_instr_gen(cs, 0xC2, die_num, 2);
 }
 
 #if defined(NSU_DRIVER_IN_ROM) || (defined(CONFIG_UNDER_UBOOT) && defined(CONFIG_SPI_NAND_FLASH_INIT_FIRST))
-__SECTION_RUNTIME void
+__SECTION_RUNTIME static void
 esmt_stack2die_page_read(spi_nand_flash_info_t *info, void *dma_addr, u32_t blk_pge_addr)
 {
     snaf_page_read(info, dma_addr, nsu_s2d_addr_trans(info, blk_pge_addr, esmt_select_die));
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 esmt_stack2die_page_write(spi_nand_flash_info_t *info, void *dma_addr, u32_t blk_pge_addr)
 {
     return snaf_page_write(info, dma_addr, nsu_s2d_addr_trans(info, blk_pge_addr, esmt_select_die));
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 esmt_stack2die_page_read_with_ecc_decode(spi_nand_flash_info_t *info, void *dma_addr, u32_t blk_pge_addr, void *p_eccbuf)
 {
     return snaf_page_read_with_ecc_decode(info, dma_addr, nsu_s2d_addr_trans(info, blk_pge_addr, esmt_select_die), p_eccbuf);
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 esmt_stack2die_page_write_with_ecc_encode(spi_nand_flash_info_t *info, void *dma_addr, u32_t blk_pge_addr, void *p_eccbuf)
 {
     return snaf_page_write_with_ecc_encode(info, dma_addr, nsu_s2d_addr_trans(info, blk_pge_addr, esmt_select_die), p_eccbuf);
 }
 
-__SECTION_RUNTIME void
+__SECTION_RUNTIME static void
 esmt_stack2die_pio_read_data(spi_nand_flash_info_t *info, void *ram_addr, u32_t wr_bytes, u32_t blk_pge_addr, u32_t col_addr)
 {
     snaf_pio_read_data(info, ram_addr, wr_bytes, nsu_s2d_addr_trans(info, blk_pge_addr, esmt_select_die), col_addr);
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 esmt_stack2die_pio_write_data(spi_nand_flash_info_t *info, void *ram_addr, u32_t wr_bytes, u32_t blk_pge_addr, u32_t col_addr)
 {
     return snaf_pio_write_data(info, ram_addr, wr_bytes, nsu_s2d_addr_trans(info, blk_pge_addr, esmt_select_die), col_addr);
 }
 
-__SECTION_RUNTIME s32_t
+__SECTION_RUNTIME static s32_t
 esmt_stack2die_block_erase(spi_nand_flash_info_t *info, u32_t blk_pge_addr)
 {
     return nsu_block_erase(info, nsu_s2d_addr_trans(info, blk_pge_addr, esmt_select_die));
@@ -373,7 +373,7 @@ spi_nand_model_info_t esmt_stack2die_model = {
 };
 #endif //defined(NSU_DRIVER_IN_ROM) || (defined(CONFIG_UNDER_UBOOT) && defined(CONFIG_SPI_NAND_FLASH_INIT_FIRST))
 
-__SECTION_INIT_PHASE void
+__SECTION_INIT_PHASE static void
 esmt_stack2die_specific_setting(u32_t cs)
 {
     //For StackDie, preset the Die1's status as Die0
@@ -386,7 +386,7 @@ esmt_stack2die_specific_setting(u32_t cs)
 }
 
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_FIRST
-__SECTION_INIT_PHASE spi_nand_flash_info_t *
+__SECTION_INIT_PHASE static spi_nand_flash_info_t *
 probe_esmt_spi_nand_chip(void)
 {
     nsu_reset_spi_nand_chip(0);
@@ -437,7 +437,7 @@ probe_esmt_spi_nand_chip(void)
 REG_SPI_NAND_PROBE_FUNC(probe_esmt_spi_nand_chip);
 #endif   // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_REST
-int
+static int
 esmt_init_rest(void)
 {
     u32_t cs=1; //FIXME

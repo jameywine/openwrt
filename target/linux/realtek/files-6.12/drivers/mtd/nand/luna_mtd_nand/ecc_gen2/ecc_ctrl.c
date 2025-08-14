@@ -10,7 +10,7 @@
 #endif
 
 
-SECTION_ECC_CTRL s32_t 
+SECTION_ECC_CTRL static s32_t
 check_ecc_ctrl_status(void)
 {
     if(RFLD_ECSR(ecer)){

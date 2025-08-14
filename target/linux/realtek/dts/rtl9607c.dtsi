@@ -28,14 +28,17 @@
 		};
 	};
 
+	cpc: cpc@1bde0000 {
+		compatible = "mti,mips-cpc";
+		reg = <0x1bde0000 0x6000>;
+	};
+
 	cpuintc: cpuintc@0 {
+		compatible = "mti,cpu-interrupt-controller";
 		#address-cells = <0>;
 		#interrupt-cells = <1>;
 		interrupt-controller;
-		compatible = "mti,cpu-interrupt-controller";
 	};
-
-
 
 	ictl: ictl@1f000000 {
 		compatible = "realtek,dw-apb-ictl";
@@ -61,6 +64,29 @@
 	};
 	};
 
+	soc: soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x18000000 0x10000>;
+
+		uart0: serial@2000 {
+			compatible = "ns16550a";
+			reg = <0x2000 0x100>;
+
+			clock-frequency = <200000000>;
+
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED 23 IRQ_TYPE_LEVEL_HIGH>;
+
+			reg-io-width = <1>;
+			reg-shift = <2>;
+			fifo-size = <1>;
+			no-loopback-test;
+		};
+	};
+/* Disabled for unused reasons*/
+#if 0
 	timer: timer@18003200 {
 		compatible = "realtek,ext";
 		reg = <0x18003200 0xa0>;
@@ -89,16 +115,13 @@
 			>;
 	};
 
-	uart0: serial@18002000 {
-		compatible = "ns16550a";
-		reg = <0x18002000 0x100>;
-		reg-shift = <2>;
-		reg-io-width = <1>;
-		clock-frequency = <197235200>;
-		interrupt-parent = <&gic>;
-		interrupts = <GIC_SHARED GIC_EXT_UART0 IRQ_TYPE_LEVEL_HIGH>;
+#endif
+	switchcore@1b000000 {
+		compatible = "syscon", "simple-mfd";
+		reg = <0x1b000000 0x10000>;
 	};
-
+/*Disabled for early development*/
+#if 0
 	switch: switch@0 {
 		compatible = "realtek,switch";
 		interrupt-parent = <&gic>;
@@ -195,6 +218,7 @@
 		};
 	};
 
+#endif
 	aliases {
 		serial0 = &uart0;
 	};

@@ -11,7 +11,7 @@
 +
 +config MTD_SPI_NAND_RTK
 +	bool "Realtek SPI NAND Flash Driver"
-+	depends on MTD_NAND_CORE
++	depends on MTD_NAND_CORE && MTD_RAW_NAND
 +
 +config RTK_SPI_NAND_GEN3
 +	bool "SPI NAND driver gen 3"

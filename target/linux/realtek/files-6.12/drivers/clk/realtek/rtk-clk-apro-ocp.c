@@ -7,6 +7,7 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/clk-provider.h>
+#include <asm/mach-rtl960xc/mach-rtl960xc.h>
 enum APRO_CLKS {
     APRO_CLK_OCP = 0,
     APRO_CLK_LX,
@@ -21,7 +22,7 @@ uint32_t __attribute__ ((weak))
     unsigned int ocp_pll_ctrl0 = readl((void __iomem *) 0xB8000200);
     unsigned int ocp_pll_ctrl3 = readl((void __iomem *) 0xB800020C);
     unsigned int oc0_cmugcr = readl((void __iomem *) 0xB8000380);
-    //printk("ocp_pll_ctrl0 = 0x%X, ocp_pll_ctrl3 = 0x%X,oc0_cmugcr = 0x%X \n", ocp_pll_ctrl0, ocp_pll_ctrl3,oc0_cmugcr);
+    pr_debug("ocp_pll_ctrl0 = 0x%X, ocp_pll_ctrl3 = 0x%X,oc0_cmugcr = 0x%X \n", ocp_pll_ctrl0, ocp_pll_ctrl3, oc0_cmugcr);
     uint32_t cpu_freq_sel0 = (ocp_pll_ctrl0 >> 16) & ((1 << 6) - 1);
     uint32_t en_DIV2_cpu0 = (ocp_pll_ctrl3 >> 18) & 1;
     uint32_t cmu_mode = (oc0_cmugcr) & ((1 << 2) - 1);
@@ -30,7 +31,7 @@ uint32_t __attribute__ ((weak))
     if (0 != cmu_mode) {
         cpu_mhz /= (1 << freq_div);
     }
-
+    pr_info("CPU clock is %u\n", cpu_mhz );
     return cpu_mhz;
 }
 

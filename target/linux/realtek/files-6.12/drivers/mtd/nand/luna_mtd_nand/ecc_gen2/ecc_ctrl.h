@@ -170,7 +170,6 @@ s32_t ecc_decode_bch(u32_t ecc_ability, void *dma_addr, void *p_eccbuf);
 void ecc_encode_bch_4Kpage(u32_t ecc_ability, void *dma_addr, void *p_eccbuf);
 s32_t ecc_decode_bch_4Kpage(u32_t ecc_ability, void *dma_addr, void *p_eccbuf);
 
-
 /***********************************************
   * Software Check Patch Relative
   ***********************************************/

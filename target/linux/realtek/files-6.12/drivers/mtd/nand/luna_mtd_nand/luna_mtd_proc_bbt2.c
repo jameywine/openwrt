@@ -57,7 +57,7 @@ mtd_bbt2_proc_w(struct file *f, const char __user * buffer,
 }
 #undef BUFFER_SIZE
 
-void luna_bbt2_show(struct seq_file *m);
+//void luna_bbt2_show(struct seq_file *m);
 static int
 mtd_bbt2_proc_r(struct seq_file *m, void *v)
 {

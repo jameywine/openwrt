@@ -1,0 +1,16 @@
+--- a/drivers/irqchip/irq-mips-gic.c
++++ b/drivers/irqchip/irq-mips-gic.c
+@@ -806,7 +806,12 @@ static int __init gic_of_init(struct dev
+ 	}
+ 
+ 	gic_irq_domain = irq_domain_add_simple(node, GIC_NUM_LOCAL_INTRS +
+-					       gic_shared_intrs, 0,
++					       gic_shared_intrs,
++					#if defined(CONFIG_RTL9607C)
++						16,
++					#else
++						0,
++					#endif
+ 					       &gic_irq_domain_ops, NULL);
+ 	if (!gic_irq_domain) {
+ 		pr_err("Failed to add IRQ domain");

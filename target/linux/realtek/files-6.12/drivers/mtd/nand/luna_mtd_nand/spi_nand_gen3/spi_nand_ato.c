@@ -150,7 +150,7 @@ spi_nand_flash_info_t ato_chip_info[] = {
 };
 #endif // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 
-__SECTION_INIT_PHASE u32_t 
+__SECTION_INIT_PHASE static u32_t
 ato_read_id(u32_t cs)
 {
     u32_t dummy = 0x00;
@@ -162,7 +162,7 @@ ato_read_id(u32_t cs)
 }
 
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_FIRST
-__SECTION_INIT_PHASE spi_nand_flash_info_t *
+__SECTION_INIT_PHASE static spi_nand_flash_info_t *
 probe_ato_spi_nand_chip(void)
 {
     nsu_reset_spi_nand_chip(0);
@@ -197,7 +197,7 @@ probe_ato_spi_nand_chip(void)
 REG_SPI_NAND_PROBE_FUNC(probe_ato_spi_nand_chip);
 #endif   // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_REST
-int
+static int
 ato_init_rest(void)
 {
     u32_t cs=1; //FIXME

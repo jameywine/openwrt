@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/init.h>
@@ -9,11 +11,9 @@
 #include <linux/pci.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <dal/rtl9607c/dal_rtl9607c_switch.h>
-#include <common/error.h>
-#include <rtk/switch.h>
-#include <rtl9607c_regs.h>
-#include <asm/mach-rtl960xc/irq.h>
+#include <asm/mach-rtl960xc/mach-rtl960xc.h>
+
+extern struct rtl96xx_soc_info soc_info;
 
 #define RTK_PCIE_PHY_VER      "v1.3 (2021.06.09)"
 #define RTK_PCIE_PHY_REVC_VER "v007 (2025.03.25)"
@@ -32,8 +32,6 @@
 #define BSP_PCIE0_H_CFG     0xB8B20000
 #define BSP_PCIE0_H_EXT     0xB8B21000
 
-#define BSP_PCIE1_IRQ   	BSP_PCIE_11N_IRQ
-#define BSP_PCIE0_IRQ       BSP_PCIE_11AC_IRQ
 #define BSP_ENABLE_PCIE0 (1<<7)
 #define BSP_ENABLE_PCIE1 (1<<6)
 
@@ -41,10 +39,22 @@
 #define CONFIG_GENERIC_RTL86XX_PCIE_SLOT0 1
 #define CONFIG_GENERIC_RTL86XX_PCIE_SLOT1 1
 
+#ifndef REG32
+#define REG32(reg)	(*(volatile unsigned int   *)(reg))
+#endif
+#ifndef REG16
+#define REG16(reg)	(*(volatile unsigned short *)(reg))
+#endif
+#ifndef REG08
+#define REG08(reg)	(*(volatile unsigned char  *)(reg))
+#endif
+
 struct pcie_para {
 	u8 reg;
 	u16 value;
 };
+
+void rtk_pcie_host_shutdown(void);
 
 #define MAX_NUM_DEV  4
 #define FL_MDIO_RESET	(1<<0)
@@ -213,7 +223,7 @@ static struct rtk_pci_controller pci0_controller = {
 	.devcfg_base	= (void __iomem *)BSP_PCIE0_D_CFG0,
 	.hostcfg_base	= (void __iomem *)BSP_PCIE0_H_CFG,
 	.hostext_base	= (void __iomem *)BSP_PCIE0_H_EXT,
-	.irq			= BSP_PCIE0_IRQ,
+	.irq			= RTL_PCIE0_IRQ,
 	.controller = {
 		.pci_ops        = &pcie_ops,
 		.mem_resource   = &pcie0_mem_resource,
@@ -246,7 +256,7 @@ static struct rtk_pci_controller pci1_controller = {
 	.devcfg_base	= (void __iomem *)BSP_PCIE1_D_CFG0,
 	.hostcfg_base	= (void __iomem *)BSP_PCIE1_H_CFG,
 	.hostext_base	= (void __iomem *)BSP_PCIE1_H_EXT,
-	.irq			= BSP_PCIE1_IRQ,
+	.irq			= RTL_PCIE1_IRQ,
 	.controller = {
 		.pci_ops        = &pcie_ops,
 		.mem_resource   = &pcie1_mem_resource,
@@ -557,12 +567,9 @@ static int rtk_pcie_phy_show(struct seq_file *s, void *v)
 	void __iomem *mdiobase = p->hostext_base+0x0;
 	int addr, range = 0x2f;
 	u16 val;
-	uint32_t  chipId,rev,subType = 0;
 
-	if (rtk_switch_version_get(&chipId,&rev,&subType) == RT_ERR_OK) {
-		if ((chipId==RTL9607C_CHIP_ID) && (rev==CHIP_REV_ID_C)) {
-			range = 0x35;
-		}
+	if (soc_info.family==RTL9607_FAMILY_ID) {
+		range = 0x35;
 	}
 
 	seq_printf(s, "PCIe PHY ver: %s\n", p->ver);
@@ -611,21 +618,19 @@ static int __init rtk_pcie_init(void)
 	struct rtk_pci_controller *p;
 	struct proc_dir_entry *e;
 	int ret;
-	uint32_t  chipId,rev,subType = 0;
 
 	printk("RTK-PCI Init...\n");
-	if (rtk_switch_version_get(&chipId,&rev,&subType) == RT_ERR_OK) {
-		if ((chipId==RTL9607C_CHIP_ID) && (rev==CHIP_REV_ID_C)) {
-			printk("Using revC phy\n");
-			pcie0_phy_params = pcie0_phy_params_revC;
-			pcie1_phy_params = pcie1_phy_params_revC;
-			#ifdef CONFIG_GENERIC_RTL86XX_PCIE_SLOT0
-			pci0_controller.ver = RTK_PCIE_PHY_REVC_VER;
-			#endif
-			#ifdef CONFIG_GENERIC_RTL86XX_PCIE_SLOT0
-			pci1_controller.ver = RTK_PCIE_PHY_REVC_VER;
-			#endif
-		}
+
+	if (soc_info.family==RTL9607_FAMILY_ID) {
+		printk("Using revC phy\n");
+		pcie0_phy_params = pcie0_phy_params_revC;
+		pcie1_phy_params = pcie1_phy_params_revC;
+		#ifdef CONFIG_GENERIC_RTL86XX_PCIE_SLOT0
+		pci0_controller.ver = RTK_PCIE_PHY_REVC_VER;
+		#endif
+		#ifdef CONFIG_GENERIC_RTL86XX_PCIE_SLOT0
+		pci1_controller.ver = RTK_PCIE_PHY_REVC_VER;
+		#endif
 	}
 
 #ifdef CONFIG_GENERIC_RTL86XX_PCIE_SLOT0

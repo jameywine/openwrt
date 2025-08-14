@@ -4,7 +4,7 @@
  platform-$(CONFIG_MACH_NINTENDO64)	+= n64/
  platform-$(CONFIG_PIC32MZDA)		+= pic32/
  platform-$(CONFIG_RALINK)		+= ralink/
-+platform-$(RTL9607C)     += rtl9607c/
++platform-$(CONFIG_RTL_MIPS_SOC)     += rtl9607c/
  platform-$(CONFIG_MIKROTIK_RB532)	+= rb532/
  platform-$(CONFIG_MACH_REALTEK_RTL)	+= rtl838x/
  platform-$(CONFIG_SGI_IP22)		+= sgi-ip22/
@@ -41,7 +41,7 @@
  config SGI_IP22
  	bool "SGI IP22 (Indy/Indigo2)"
  	select ARC_MEMORY
-@@ -1042,6 +1066,14 @@ config RTL931X
+@@ -1042,6 +1066,17 @@ config RTL931X
  	select SYS_SUPPORTS_SMP
  	select SYS_SUPPORTS_MIPS_CPS
  
@@ -52,11 +52,14 @@
 +	select CPU_HAS_WB
 +	select COMMON_CLK_RTK_APRO
 +	select CPU_MIPSR2_IRQ_VI
++	select MIPS_DISABLE_VDSO
++	select SYS_HAS_EARLY_PRINTK_8250
++	select USE_GENERIC_EARLY_PRINTK_8250
 +
  source "arch/mips/alchemy/Kconfig"
  source "arch/mips/ath25/Kconfig"
  source "arch/mips/ath79/Kconfig"
-@@ -1055,6 +1087,7 @@ source "arch/mips/lantiq/Kconfig"
+@@ -1055,6 +1090,7 @@ source "arch/mips/lantiq/Kconfig"
  source "arch/mips/mobileye/Kconfig"
  source "arch/mips/pic32/Kconfig"
  source "arch/mips/ralink/Kconfig"

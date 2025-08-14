@@ -179,7 +179,7 @@ _9Chapters_ecc_decode(u32_t ecc_ability, void *dma_addr, void *fake_ptr_cs)
 		return ECC_USE_ODE_SUCCESS;
 }
 
-__SECTION_INIT_PHASE u32_t
+__SECTION_INIT_PHASE static u32_t
 _9Chapters_read_id(u32_t cs)
 {
     u32_t w_io_len = IO_WIDTH_LEN(SIO_WIDTH,CMR_LEN(2));
@@ -189,7 +189,7 @@ _9Chapters_read_id(u32_t cs)
 }
 
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_FIRST
-__SECTION_INIT_PHASE spi_nand_flash_info_t *
+__SECTION_INIT_PHASE static spi_nand_flash_info_t *
 probe_9Chapters_spi_nand_chip(void)
 {
     nsu_reset_spi_nand_chip(0);
@@ -231,7 +231,7 @@ probe_9Chapters_spi_nand_chip(void)
 REG_SPI_NAND_PROBE_FUNC(probe_9Chapters_spi_nand_chip);
 #endif   // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 #ifdef CONFIG_SPI_NAND_FLASH_INIT_REST
-int
+static int
 _9Chapters_init_rest(void)
 {
     u32_t cs=1;

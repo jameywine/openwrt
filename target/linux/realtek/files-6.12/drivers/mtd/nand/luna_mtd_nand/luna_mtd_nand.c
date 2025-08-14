@@ -49,7 +49,7 @@
 static void rtk_show_page(struct mtd_info *mtd);
 #endif
 
-void
+static void
 process_trace(struct task_struct *curr)
 {
 	struct task_struct *t = curr;

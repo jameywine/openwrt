@@ -29,7 +29,7 @@ extern struct spi_nand_flash_info_s *_spi_nand_info;
 //#define  NSU_DHC_USING_QIO 1
 
 spi_nand_model_info_t snaf_dhc_ode_model;
-void
+static void
 snaf_dhc_pio_read_data(spi_nand_flash_info_t *info, void *ram_addr, u32_t wr_bytes, u32_t blk_pge_addr, u32_t col_addr)
 {
 	unsigned char *buf;
@@ -240,14 +240,14 @@ spi_nand_flash_info_t dhc_chip_info[] = {
 };
 #endif // CONFIG_SPI_NAND_FLASH_INIT_FIRST
 
-__SECTION_RUNTIME void 
+__SECTION_RUNTIME static void
 dhc_ecc_encode(u32_t ecc_ability, void *dma_addr, void *fake_ptr_cs)
 {
     return;
 }
 
 
-__SECTION_RUNTIME s32_t 
+__SECTION_RUNTIME static s32_t
 dhc_ecc_decode(u32_t ecc_ability, void *dma_addr, void *fake_ptr_cs)
 {
     const u8_t check_ode_reg = 0xC0;
@@ -260,7 +260,7 @@ dhc_ecc_decode(u32_t ecc_ability, void *dma_addr, void *fake_ptr_cs)
     return 0;
 }
 
-__SECTION_INIT_PHASE u32_t 
+__SECTION_INIT_PHASE static u32_t
 dhc_read_id(u32_t cs)
 {
     u32_t w_io_len = IO_WIDTH_LEN(SIO_WIDTH,CMR_LEN(2));
@@ -270,7 +270,7 @@ dhc_read_id(u32_t cs)
 }
 
 #ifndef CONFIG_UNDER_UBOOT
-__SECTION_INIT_PHASE spi_nand_flash_info_t *
+__SECTION_INIT_PHASE static spi_nand_flash_info_t *
 probe_dhc_spi_nand_chip(void)
 {
     nsu_reset_spi_nand_chip(0);

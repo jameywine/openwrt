@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0-or-later OR MI
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 
 /dts-v1/;
 
 #include "rtl9607c.dtsi"
-#include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/input/input.h>
+//#include <dt-bindings/gpio/gpio.h>
+//#include <dt-bindings/input/input.h>
 
 / {
 	compatible = "bt-pon,bt-g711ax", "realtek,rtl9607c-soc";
@@ -15,6 +15,9 @@
 		device_type = "memory";
 		reg = <0x0 0x10000000>;
 		};
+
+	/* Disabled for early development */
+	#if 0
 	spinand@0 {
 		compatible = "spi-nand";
 		reg = <0x0>;
@@ -48,6 +51,7 @@
 			};
 		}
 	};
+
 	leds {
 		compatible = "gpio-leds";
 		led_pwr_g {
@@ -133,4 +137,5 @@
 			duration-ms = <64>;
 		};
 	};
+	#endif
 };

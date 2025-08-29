@@ -1,5 +1,0 @@
-#
-# Realtek RTL9607C SoCs
-#
-cflags-$(CONFIG_RTL9607C)		+= -I$(srctree)/arch/mips/include/asm/mach-rtl960xc/
-load-$(CONFIG_RTL9607C)		+= 0xffffffff80001000

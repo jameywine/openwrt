@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
-define Device/bt-pon_bt-g711ax
+define Device/realtek_rtl9607c-eng
   SOC := rtl9607c
-  DEVICE_VENDOR := BT-PON
-  DEVICE_MODEL := BT-G711AX
+  DEVICE_VENDOR := Realtek
+  DEVICE_MODEL := RTL9607C ENG
   UIMAGE_MAGIC := 0x27051956
-  KERNEL_INITRAMFS := kernel-bin | append-dtb | uImage lzma
+  $(Device/kernel-lzma)
 endef
-TARGET_DEVICES += bt-pon_bt-g711ax
+TARGET_DEVICES += realtek_rtl9607c-eng

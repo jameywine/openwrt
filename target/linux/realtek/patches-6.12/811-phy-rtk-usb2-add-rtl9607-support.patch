@@ -1,0 +1,397 @@
+--- a/drivers/phy/realtek/Kconfig
++++ b/drivers/phy/realtek/Kconfig
+@@ -3,7 +3,7 @@
+ # Phy drivers for Realtek platforms
+ #
+ 
+-if ARCH_REALTEK || COMPILE_TEST
++if ARCH_REALTEK || RTL960X || COMPILE_TEST
+ 
+ config PHY_RTK_RTD_USB2PHY
+ 	tristate "Realtek RTD USB2 PHY Transceiver Driver"
+@@ -29,4 +29,4 @@ config PHY_RTK_RTD_USB3PHY
+ 	  DWC3 USB IP. This driver will do the PHY initialization
+ 	  of the parameters.
+ 
+-endif # ARCH_REALTEK || COMPILE_TEST
++endif # ARCH_REALTEK || RTL960X || COMPILE_TEST
+--- a/drivers/phy/realtek/phy-rtk-usb2.c
++++ b/drivers/phy/realtek/phy-rtk-usb2.c
+@@ -17,6 +17,7 @@
+ #include <linux/sys_soc.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/phy/phy.h>
++#include <linux/reset.h>
+ #include <linux/usb.h>
+ 
+ /* GUSB2PHYACCn register */
+@@ -25,6 +26,12 @@
+ #define PHY_VCTRL_SHIFT 8
+ #define PHY_REG_DATA_MASK 0xff
+ 
++#define PHY_9607_VSTS_BUSY BIT(17)
++#define PHY_9607_NEW_REG_REQ BIT(13)
++
++#define PHY_9607_FORCE_DISCONNECT_REG 0x10
++#define PHY_9607_FORCE_DISCONNECT_BIT BIT(5)
++
+ #define GET_LOW_NIBBLE(addr) ((addr) & 0x0f)
+ #define GET_HIGH_NIBBLE(addr) (((addr) & 0xf0) >> 4)
+ 
+@@ -64,6 +71,12 @@ struct phy_reg {
+ 	void __iomem *reg_wrap_vstatus;
+ 	void __iomem *reg_gusb2phyacc0;
+ 	int vstatus_index;
++	int vstatus_offset;
++	int vstatus_busy;
++	int new_reg_req;
++
++	u32 (*read)(void __iomem *reg);
++	void (*write)(u32 val, void __iomem *reg);
+ };
+ 
+ struct phy_data {
+@@ -96,6 +109,14 @@ struct phy_cfg {
+ 	bool do_toggle_driving;
+ 	bool use_default_parameter;
+ 	bool is_double_sensitivity_mode;
++
++	u32 (*read)(void __iomem *reg);
++	void (*write)(u32 val, void __iomem *reg);
++
++	int vstatus_offset;
++	int vstatus_busy;
++	int new_reg_req;
++	bool force_host_disconnect;
+ };
+ 
+ struct phy_parameter {
+@@ -118,10 +139,31 @@ struct rtk_phy {
+ 	struct phy_cfg *phy_cfg;
+ 	int num_phy;
+ 	struct phy_parameter *phy_parameter;
++	struct reset_control *phy_rst;
+ 
+ 	struct dentry *debug_dir;
+ };
+ 
++static inline u32 phy_read(void __iomem *reg)
++{
++	return readl(reg);
++}
++
++static inline u32 phy_read_le(void __iomem *reg)
++{
++	return le32_to_cpu(readl(reg));
++}
++
++static inline void phy_write(u32 val, void __iomem *reg)
++{
++	writel(val, reg);
++}
++
++static inline void phy_write_le(u32 val, void __iomem *reg)
++{
++	writel(cpu_to_le32(val), reg);
++}
++
+ /* mapping 0xE0 to 0 ... 0xE7 to 7, 0xF0 to 8 ,,, 0xF7 to 15 */
+ static inline int page_addr_to_array_index(u8 addr)
+ {
+@@ -138,12 +180,12 @@ static inline u8 array_index_to_page_add
+ #define PHY_IO_TIMEOUT_USEC		(50000)
+ #define PHY_IO_DELAY_US			(100)
+ 
+-static inline int utmi_wait_register(void __iomem *reg, u32 mask, u32 result)
++static inline int utmi_wait_register(u32 (*read)(void __iomem *reg), void __iomem *reg, u32 mask, u32 result)
+ {
+ 	int ret;
+ 	unsigned int val;
+ 
+-	ret = read_poll_timeout(readl, val, ((val & mask) == result),
++	ret = read_poll_timeout(read, val, ((val & mask) == result),
+ 				PHY_IO_DELAY_US, PHY_IO_TIMEOUT_USEC, false, reg);
+ 	if (ret) {
+ 		pr_err("%s can't program USB phy\n", __func__);
+@@ -162,25 +204,25 @@ static char rtk_phy_read(struct phy_reg
+ 	addr -= OFFEST_PHY_READ;
+ 
+ 	/* polling until VBusy == 0 */
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	ret = utmi_wait_register(phy_reg->read, reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return (char)ret;
+ 
+ 	/* VCtrl = low nibble of addr, and set PHY_NEW_REG_REQ */
+-	val = PHY_NEW_REG_REQ | (GET_LOW_NIBBLE(addr) << PHY_VCTRL_SHIFT);
+-	writel(val, reg_gusb2phyacc0);
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	val = phy_reg->new_reg_req | (GET_LOW_NIBBLE(addr) << PHY_VCTRL_SHIFT);
++	phy_reg->write(val, reg_gusb2phyacc0);
++	ret = utmi_wait_register(phy_reg->read, reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return (char)ret;
+ 
+ 	/* VCtrl = high nibble of addr, and set PHY_NEW_REG_REQ */
+-	val = PHY_NEW_REG_REQ | (GET_HIGH_NIBBLE(addr) << PHY_VCTRL_SHIFT);
+-	writel(val, reg_gusb2phyacc0);
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	val = phy_reg->new_reg_req | (GET_HIGH_NIBBLE(addr) << PHY_VCTRL_SHIFT);
++	phy_reg->write(val, reg_gusb2phyacc0);
++	ret = utmi_wait_register(phy_reg->read, reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return (char)ret;
+ 
+-	val = readl(reg_gusb2phyacc0);
++	val = phy_reg->read(reg_gusb2phyacc0);
+ 
+ 	return (char)(val & PHY_REG_DATA_MASK);
+ }
+@@ -194,25 +236,25 @@ static int rtk_phy_write(struct phy_reg
+ 	int ret = 0;
+ 
+ 	/* write data to VStatusOut2 (data output to phy) */
+-	writel((u32)data << shift_bits, reg_wrap_vstatus);
++	writel((u32)data << shift_bits, reg_wrap_vstatus + phy_reg->vstatus_offset);
+ 
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	ret = utmi_wait_register(phy_reg->read, reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return ret;
+ 
+ 	/* VCtrl = low nibble of addr, set PHY_NEW_REG_REQ */
+-	val = PHY_NEW_REG_REQ | (GET_LOW_NIBBLE(addr) << PHY_VCTRL_SHIFT);
++	val = phy_reg->new_reg_req | (GET_LOW_NIBBLE(addr) << PHY_VCTRL_SHIFT);
+ 
+-	writel(val, reg_gusb2phyacc0);
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	phy_reg->write(val, reg_gusb2phyacc0);
++	ret = utmi_wait_register(phy_reg->read, reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return ret;
+ 
+ 	/* VCtrl = high nibble of addr, set PHY_NEW_REG_REQ */
+-	val = PHY_NEW_REG_REQ | (GET_HIGH_NIBBLE(addr) << PHY_VCTRL_SHIFT);
++	val = phy_reg->new_reg_req | (GET_HIGH_NIBBLE(addr) << PHY_VCTRL_SHIFT);
+ 
+-	writel(val, reg_gusb2phyacc0);
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	phy_reg->write(val, reg_gusb2phyacc0);
++	ret = utmi_wait_register(phy_reg->read, reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -569,12 +611,25 @@ static int do_rtk_phy_init(struct rtk_ph
+ 	phy_parameter = &((struct phy_parameter *)rtk_phy->phy_parameter)[index];
+ 	phy_reg = &phy_parameter->phy_reg;
+ 
++	reset_control_deassert(rtk_phy->phy_rst);
++
++	mdelay(5);
++
+ 	if (phy_cfg->use_default_parameter) {
+ 		dev_dbg(rtk_phy->dev, "%s phy#%d use default parameter\n",
+ 			__func__, index);
+ 		goto do_toggle;
+ 	}
+ 
++	if (phy_cfg->force_host_disconnect) {
++		/* disable force-host-disconnect */
++		u32 temp = readl(phy_reg->reg_wrap_vstatus + PHY_9607_FORCE_DISCONNECT_REG);
++		temp &= ~PHY_9607_FORCE_DISCONNECT_BIT;
++		writel(temp, phy_reg->reg_wrap_vstatus + PHY_9607_FORCE_DISCONNECT_REG);
++
++		mdelay(10); /* allow IP to startup */
++	}
++
+ 	/* Set page 0 */
+ 	phy_data_page = phy_cfg->page0;
+ 	rtk_phy_set_page(phy_reg, 0);
+@@ -957,6 +1012,7 @@ out:
+ 
+ static int parse_phy_data(struct rtk_phy *rtk_phy)
+ {
++	struct phy_cfg *phy_cfg = rtk_phy->phy_cfg;
+ 	struct device *dev = rtk_phy->dev;
+ 	struct device_node *np = dev->of_node;
+ 	struct phy_parameter *phy_parameter;
+@@ -974,6 +1030,11 @@ static int parse_phy_data(struct rtk_phy
+ 		phy_parameter->phy_reg.reg_wrap_vstatus = of_iomap(np, 0);
+ 		phy_parameter->phy_reg.reg_gusb2phyacc0 = of_iomap(np, 1) + index;
+ 		phy_parameter->phy_reg.vstatus_index = index;
++		phy_parameter->phy_reg.vstatus_offset = phy_cfg->vstatus_offset;
++		phy_parameter->phy_reg.vstatus_busy = phy_cfg->vstatus_busy;
++		phy_parameter->phy_reg.new_reg_req = phy_cfg->new_reg_req;
++		phy_parameter->phy_reg.read = phy_cfg->read;
++		phy_parameter->phy_reg.write = phy_cfg->write;
+ 
+ 		if (of_property_read_bool(np, "realtek,inverse-hstx-sync-clock"))
+ 			phy_parameter->inverse_hstx_sync_clock = true;
+@@ -1030,6 +1091,12 @@ static int rtk_usb2phy_probe(struct plat
+ 
+ 	rtk_phy->num_phy = phy_cfg->num_phy;
+ 
++	rtk_phy->phy_rst = devm_reset_control_array_get_optional_exclusive(dev);
++	if (IS_ERR(rtk_phy->phy_rst)) {
++		dev_err(dev, "usb2 phy resets are not working\n");
++		return PTR_ERR(rtk_phy->phy_rst);
++	}
++
+ 	ret = parse_phy_data(rtk_phy);
+ 	if (ret)
+ 		goto err;
+@@ -1085,6 +1152,12 @@ static const struct phy_cfg rtd1295_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = false,
++	.read = phy_read,
++	.write = phy_write,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
++	.force_host_disconnect = false,
+ };
+ 
+ static const struct phy_cfg rtd1395_phy_cfg = {
+@@ -1109,6 +1182,12 @@ static const struct phy_cfg rtd1395_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = false,
++	.read = phy_read,
++	.write = phy_write,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
++	.force_host_disconnect = false,
+ };
+ 
+ static const struct phy_cfg rtd1395_phy_cfg_2port = {
+@@ -1133,6 +1212,12 @@ static const struct phy_cfg rtd1395_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = false,
++	.read = phy_read,
++	.write = phy_write,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
++	.force_host_disconnect = false,
+ };
+ 
+ static const struct phy_cfg rtd1619_phy_cfg = {
+@@ -1155,6 +1240,12 @@ static const struct phy_cfg rtd1619_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = false,
++	.read = phy_read,
++	.write = phy_write,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
++	.force_host_disconnect = false,
+ };
+ 
+ static const struct phy_cfg rtd1319_phy_cfg = {
+@@ -1181,6 +1272,12 @@ static const struct phy_cfg rtd1319_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.read = phy_read,
++	.write = phy_write,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
++	.force_host_disconnect = false,
+ };
+ 
+ static const struct phy_cfg rtd1312c_phy_cfg = {
+@@ -1206,6 +1303,12 @@ static const struct phy_cfg rtd1312c_phy
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.read = phy_read,
++	.write = phy_write,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
++	.force_host_disconnect = false,
+ };
+ 
+ static const struct phy_cfg rtd1619b_phy_cfg = {
+@@ -1231,6 +1334,12 @@ static const struct phy_cfg rtd1619b_phy
+ 	.driving_updated_for_dev_dis = 0x8,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.read = phy_read,
++	.write = phy_write,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
++	.force_host_disconnect = false,
+ };
+ 
+ static const struct phy_cfg rtd1319d_phy_cfg = {
+@@ -1256,6 +1365,12 @@ static const struct phy_cfg rtd1319d_phy
+ 	.driving_updated_for_dev_dis = 0x8,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.read = phy_read,
++	.write = phy_write,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
++	.force_host_disconnect = false,
+ };
+ 
+ static const struct phy_cfg rtd1315e_phy_cfg = {
+@@ -1282,6 +1397,42 @@ static const struct phy_cfg rtd1315e_phy
+ 	.driving_updated_for_dev_dis = 0x8,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.read = phy_read,
++	.write = phy_write,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
++	.force_host_disconnect = false,
++};
++
++static const struct phy_cfg rtl9607_phy_cfg = {
++	.page0_size = MAX_USB_PHY_PAGE0_DATA_SIZE,
++	.page0 = { [0] = {0xe0, 0x95},
++		   [4] = {0xe4, 0x6a},
++		   [12] = {0xf3, 0x31}, },
++	.page1_size = MAX_USB_PHY_PAGE1_DATA_SIZE,
++	.page1 = { [0] = {0xe0, 0x26}, },
++	.page2_size = MAX_USB_PHY_PAGE2_DATA_SIZE,
++	.page2 = { [7] = {0xe7, 0x33}, },
++	.num_phy = 1,
++	.check_efuse = false,
++	.check_efuse_version = CHECK_EFUSE_V2,
++	.efuse_dc_driving_rate = EFUS_USB_DC_CAL_RATE,
++	.dc_driving_mask = 0x1f,
++	.efuse_dc_disconnect_rate = EFUS_USB_DC_DIS_RATE,
++	.dc_disconnect_mask = 0xf,
++	.usb_dc_disconnect_at_page0 = true,
++	.do_toggle = true,
++	.do_toggle_driving = false,
++	.driving_updated_for_dev_dis = 0x8,
++	.use_default_parameter = false,
++	.is_double_sensitivity_mode = true,
++	.read = phy_read_le,
++	.write = phy_write_le,
++	.vstatus_offset = 0xc,
++	.vstatus_busy = PHY_9607_VSTS_BUSY,
++	.new_reg_req = PHY_9607_NEW_REG_REQ,
++	.force_host_disconnect = true,
+ };
+ 
+ static const struct of_device_id usbphy_rtk_dt_match[] = {
+@@ -1294,6 +1445,7 @@ static const struct of_device_id usbphy_
+ 	{ .compatible = "realtek,rtd1395-usb2phy-2port", .data = &rtd1395_phy_cfg_2port },
+ 	{ .compatible = "realtek,rtd1619-usb2phy", .data = &rtd1619_phy_cfg },
+ 	{ .compatible = "realtek,rtd1619b-usb2phy", .data = &rtd1619b_phy_cfg },
++	{ .compatible = "realtek,rtl9607-usb2phy", .data = &rtl9607_phy_cfg },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, usbphy_rtk_dt_match);

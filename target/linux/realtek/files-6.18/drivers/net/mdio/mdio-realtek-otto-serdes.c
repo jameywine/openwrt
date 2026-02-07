@@ -41,6 +41,10 @@
 #define RTSDS_93XX_CMD_PAGE_MASK	GENMASK(12, 7)
 #define RTSDS_93XX_CMD_REG_MASK		GENMASK(17, 13)
 
+#define RTSDS_960X_SDS_CNT		3
+#define RTSDS_960X_PAGE_CNT		4
+#define RTSDS_960X_BASE			0x40800
+
 struct rtsds_ctrl {
 	struct device *dev;
 	struct regmap *map;
@@ -414,6 +418,36 @@ static int rtsds_93xx_write(struct rtsds_ctrl *ctrl, int sds, int page, int regn
 	return rtsds_rt93xx_io(ctrl, backsds, subpage, regnum, RTSDS_93XX_CMD_WRITE);
 }
 
+/* RTL960X has 3 SerDes. The 16 bit registers start at 0xbb040800 and are mapped directly into
+* 32 bit memory addresses. High 16 bits are always empty. A "lower" memory block serves pages 0/3
+* a "higher" memory block pages 1/2.
+*
+* Note: there is memory between 0x4X000 and 0x4X800 with a few ANA registers, but mostly unnamed.
+* Other pages might be placed there.
+*/
+
+static int rtsds_960x_reg_offset(int sds, int page, int regnum)
+{
+	return (sds << 12) + (page << 9) + (regnum << 2);
+}
+
+static int rtsds_960x_read(struct rtsds_ctrl *ctrl, int sds, int page, int regnum)
+{
+	int offset = rtsds_960x_reg_offset(sds, page, regnum);
+	int ret, value;
+
+	ret = regmap_read(ctrl->map, ctrl->cfg->base + offset, &value);
+
+	return ret ? ret : value & RTSDS_VAL_MASK;
+}
+
+static int rtsds_960x_write(struct rtsds_ctrl *ctrl, int sds, int page, int regnum, u16 value)
+{
+	int offset = rtsds_960x_reg_offset(sds, page, regnum);
+
+	return regmap_write(ctrl->map, ctrl->cfg->base + offset, value);
+}
+
 static int rtsds_read(struct mii_bus *bus, int addr, int devad, int regnum)
 {
 	struct rtsds_ctrl *ctrl = bus->priv;
@@ -514,6 +548,15 @@ static const struct rtsds_config rtsds_931x_cfg = {
 	.write			= rtsds_93xx_write,
 };
 
+static const struct rtsds_config rtsds_960x_cfg = {
+	.sds_cnt		= RTSDS_960X_SDS_CNT,
+	.page_cnt		= RTSDS_960X_PAGE_CNT,
+	.base			= RTSDS_960X_BASE,
+	.get_backing_sds	= rtsds_83xx_get_backing_sds,
+	.read			= rtsds_960x_read,
+	.write			= rtsds_960x_write,
+};
+
 static const struct of_device_id rtsds_of_match[] = {
 	{
 		.compatible = "realtek,rtl8380-serdes-mdio",
@@ -530,6 +573,10 @@ static const struct of_device_id rtsds_of_match[] = {
 	{
 		.compatible = "realtek,rtl9311-serdes-mdio",
 		.data = &rtsds_931x_cfg,
+	},
+	{
+		.compatible = "realtek,rtl9607-serdes-mdio",
+		.data = &rtsds_960x_cfg,
 	},
 	{ /* sentinel */ }
 };

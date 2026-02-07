@@ -281,6 +281,10 @@
 			};
 		};
 
+		mdio_serdes: mdio-serdes {
+			compatible = "realtek,rtl9607-serdes-mdio", "realtek,otto-serdes-mdio";
+		};
+
 		soc_thermal: thermal {
 			compatible = "realtek,rtl9607-thermal";
 			#thermal-sensor-cells = <0>;

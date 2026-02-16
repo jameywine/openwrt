@@ -69,6 +69,16 @@
 #define RTPCS_93XX_MODEL_NAME_INFO		(0x0004)
 #define RTPCS_93XX_CHIP_INFO			(0x0008)
 
+#define RTPCS_960X_CPU_PORT			9
+#define RTPCS_960X_P_ABLITY		0x200
+
+#define RTPCS_960X_SPEED01_STS		GENMASK(1, 0)
+#define RTPCS_960X_DUPLEX_STS		BIT(2)
+#define RTPCS_960X_LINK_STS			BIT(4)
+#define RTPCS_960X_MAC_RX_PAUSE_STS		BIT(5)
+#define RTPCS_960X_MAC_TX_PAUSE_STS		BIT(6)
+#define RTPCS_960X_SPEED23_STS		GENMASK(13, 12)
+
 #define PHY_PAGE_2	2
 #define PHY_PAGE_4	4
 
@@ -213,6 +223,7 @@ struct rtpcs_config {
 	int mac_link_sts;
 	int mac_rx_pause_sts;
 	int mac_tx_pause_sts;
+	int port_ability;
 	u8 serdes_count;
 
 	const struct phylink_pcs_ops *pcs_ops;
@@ -3694,6 +3705,70 @@ static int rtpcs_931x_setup_serdes(struct rtpcs_serdes *sds,
 	return 0;
 }
 
+/* RTL960X */
+
+static void rtpcs_960x_pcs_get_state(struct phylink_pcs *pcs, struct phylink_link_state *state)
+{
+	struct rtpcs_link *link = rtpcs_phylink_pcs_to_link(pcs);
+	struct rtpcs_ctrl *ctrl = link->ctrl;
+	int port = link->port;
+	int linkup, speed, val;
+
+	state->link = 0;
+	state->speed = SPEED_UNKNOWN;
+	state->duplex = DUPLEX_UNKNOWN;
+	state->pause &= ~(MLO_PAUSE_RX | MLO_PAUSE_TX);
+
+	/* Read MAC side link twice */
+	for (int i = 0; i < 2; i++) {
+		regmap_read(ctrl->map, ctrl->cfg->port_ability + 4 * port, &val);
+		linkup = val & RTPCS_960X_LINK_STS;
+	}
+
+	if (!linkup)
+		return;
+
+	state->link = 1;
+	state->duplex = val & RTPCS_960X_DUPLEX_STS;
+
+	speed = (val & RTPCS_960X_SPEED23_STS) << 2 | (val & RTPCS_960X_SPEED01_STS);
+
+	switch (speed) {
+	case RTPCS_SPEED_10:
+		state->speed = SPEED_10;
+		break;
+	case RTPCS_SPEED_100:
+		state->speed = SPEED_100;
+		break;
+	case RTPCS_SPEED_1000:
+		state->speed = SPEED_1000;
+		break;
+	case RTPCS_SPEED_10000:
+	case RTPCS_SPEED_10000_LEGACY:
+		/*
+		 * The legacy mode is ok so far with minor inconsistencies. On RTL838x this flag
+		 * is either 500M or 2G. It might be that MAC_GLITE_STS register tells more. On
+		 * RTL839x this is either 500M or 10G. More info might be in MAC_LINK_500M_STS.
+		 * Without support for the 500M modes simply resolve to 10G.
+		 */
+		state->speed = SPEED_10000;
+		break;
+	case RTPCS_SPEED_2500:
+		state->speed = SPEED_2500;
+		break;
+	case RTPCS_SPEED_5000:
+		state->speed = SPEED_5000;
+		break;
+	default:
+		dev_err(ctrl->dev, "unknown speed %d\n", speed);
+	}
+
+	if (val & RTPCS_960X_MAC_RX_PAUSE_STS)
+		state->pause |= MLO_PAUSE_RX;
+	if (val & RTPCS_960X_MAC_TX_PAUSE_STS)
+		state->pause |= MLO_PAUSE_TX;
+}
+
 /* Common functions */
 
 static void rtpcs_pcs_get_state(struct phylink_pcs *pcs, struct phylink_link_state *state)
@@ -4082,6 +4157,24 @@ static const struct rtpcs_config rtpcs_931x_cfg = {
 	.setup_serdes		= rtpcs_931x_setup_serdes,
 };
 
+static const struct phylink_pcs_ops rtpcs_960x_pcs_ops = {
+	.pcs_an_restart		= rtpcs_pcs_an_restart,
+	.pcs_config		= rtpcs_pcs_config,
+	.pcs_get_state		= rtpcs_960x_pcs_get_state,
+};
+
+static const struct rtpcs_serdes_ops rtpcs_960x_sds_ops = {
+	.read			= rtpcs_generic_sds_op_read,
+	.write			= rtpcs_generic_sds_op_write,
+};
+
+static const struct rtpcs_config rtpcs_960x_cfg = {
+	.cpu_port		= RTPCS_960X_CPU_PORT,
+	.port_ability	= RTPCS_960X_P_ABLITY,
+	.pcs_ops		= &rtpcs_960x_pcs_ops,
+	.sds_ops		= &rtpcs_960x_sds_ops,
+};
+
 static const struct of_device_id rtpcs_of_match[] = {
 	{
 		.compatible = "realtek,rtl8380-pcs",
@@ -4098,6 +4191,10 @@ static const struct of_device_id rtpcs_of_match[] = {
 	{
 		.compatible = "realtek,rtl9311-pcs",
 		.data = &rtpcs_931x_cfg,
+	},
+	{
+		.compatible = "realtek,rtl9607-pcs",
+		.data = &rtpcs_960x_cfg,
 	},
 	{ /* sentinel */ }
 };

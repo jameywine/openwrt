@@ -72,3 +72,19 @@
 		};
 	};
 };
+
+&pcie0 {
+	pinctrl-0 = <&pinmux_pcie0_rst>;
+	pinctrl-names = "default";
+
+	status = "okay";
+	reset-gpios = <&gpio1 8 GPIO_ACTIVE_LOW>;
+};
+
+&pcie1 {
+	pinctrl-0 = <&pinmux_pcie1_rst>;
+	pinctrl-names = "default";
+
+	status = "okay";
+	reset-gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
+};

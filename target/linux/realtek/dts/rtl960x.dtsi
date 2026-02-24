@@ -90,6 +90,11 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x18000000 0x20000>;
 
+		pcie_misc: syscon@504 {
+			compatible = "realtek,pcie-misc", "syscon";
+			reg = <0x504 0x4>;
+		};
+
 		ip_en_rst: reset-controller@600 {
 			compatible = "snps,dw-low-reset";
 			#reset-cells = <1>;
@@ -282,6 +287,92 @@
 		pinctrl-single,register-width = <32>;
 		pinctrl-single,function-mask = <0x1>;
 		#pinctrl-cells = <2>;
+
+		pinmux_pcie1_rst: pcie1-rst {
+			pinctrl-single,bits = <0x4 0x80 0x80>;
+		};
+
+		pinmux_pcie0_rst: pcie0-rst {
+			pinctrl-single,bits = <0x4 0x100 0x100>;
+		};
+	};
+
+	pcie0_phy: phy@18b21000 {
+		compatible = "realtek,rtl9607-revB-pciephy0";
+		reg = <0x18b21000 0xc>;
+		#phy-cells = <0>;
+		realtek,pcie-misc = <&pcie_misc>;
+		resets = <&ip_en_rst 7>;
+		reset-names = "pcie0";
+	};
+
+	pcie1_phy: phy@18b01000 {
+		compatible = "realtek,rtl9607-revB-pciephy1";
+		reg = <0x18b01000 0xc>;
+		#phy-cells = <0>;
+		realtek,pcie-misc = <&pcie_misc>;
+		resets = <&ip_en_rst 6>;
+		reset-names = "pcie1";
+	};
+
+	pcie0: pcie@18b20000 {
+		compatible = "realtek,rtl9607-pcie";
+		reg = <0x18b20000 0x1000>,
+		      <0x18b2100c 0x1000>,
+		      <0x18b30000 0x10000>;
+		reg-names = "hostcfg", "hostext", "devcfg";
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		bus-range = <0 255>;
+
+		ranges = <0x02000000 0 0x1a000000 0x1a000000 0 0x01000000>,
+			 <0x01000000 0 0x00000000 0x18e00000 0 0x00010000>;
+
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED 49 IRQ_TYPE_LEVEL_HIGH>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic GIC_SHARED 49 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic GIC_SHARED 49 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic GIC_SHARED 49 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic GIC_SHARED 49 IRQ_TYPE_LEVEL_HIGH>;
+
+		phys = <&pcie0_phy>;
+		phy-names = "pcie0-phy";
+
+		status = "disabled";
+	};
+
+	pcie1: pcie@18b00000 {
+		compatible = "realtek,rtl9607-pcie";
+		reg = <0x18b00000 0x1000>,
+		      <0x18b0100c 0x1000>,
+		      <0x18b10000 0x10000>;
+		reg-names = "hostcfg", "hostext", "devcfg";
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		bus-range = <0 255>;
+
+		ranges = <0x02000000 0 0x19000000 0x19000000 0 0x01000000>,
+			 <0x01000000 0 0x00000000 0x18c00000 0 0x00010000>;
+
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED 50 IRQ_TYPE_LEVEL_HIGH>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic GIC_SHARED 50 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic GIC_SHARED 50 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic GIC_SHARED 50 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic GIC_SHARED 50 IRQ_TYPE_LEVEL_HIGH>;
+
+		phys = <&pcie1_phy>;
+		phy-names = "pcie1-phy";
+
+		status = "disabled";
 	};
 
 	thermal_zones: thermal-zones {

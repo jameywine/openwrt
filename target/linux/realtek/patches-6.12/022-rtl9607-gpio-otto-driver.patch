@@ -1,0 +1,13 @@
+--- a/drivers/gpio/gpio-realtek-otto.c
++++ b/drivers/gpio/gpio-realtek-otto.c
+@@ -350,6 +350,10 @@ static const struct of_device_id realtek
+ 	{
+ 		.compatible = "realtek,rtl9310-gpio",
+ 	},
++	{
++		.compatible = "realtek,rtl9607-gpio",
++		.data = (void *)GPIO_PORTS_REVERSED
++	},
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(of, realtek_gpio_of_match);

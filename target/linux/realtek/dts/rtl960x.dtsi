@@ -133,8 +133,8 @@
 		};
 
 		gpio0: gpio-controller@3300 {
-			compatible = "realtek,rtl9300-gpio", "realtek,otto-gpio";
-			reg = <0x3300 0x1c>, <0x3338 0x8>;
+			compatible = "realtek,rtl9607-gpio";
+			reg = <0x3300 0x1c>;
 
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -144,6 +144,34 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SHARED 21 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		gpio1: gpio-controller@331c {
+			compatible = "realtek,rtl9607-gpio";
+			reg = <0x331c 0x1c>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <32>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED 22 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		gpio2: gpio-controller@3340 {
+			compatible = "realtek,rtl9607-gpio";
+			reg = <0x3340 0x1c>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <32>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED 18 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		timer0: timer@3200 {
@@ -233,6 +261,16 @@
 			compatible = "realtek,rtl9607-thermal";
 			#thermal-sensor-cells = <0>;
 		};
+	};
+
+	pinmux: pinmux@1b000038 {
+		compatible = "pinctrl-single";
+		reg = <0x1b000038 0xc>;
+
+		pinctrl-single,bit-per-mux;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0x1>;
+		#pinctrl-cells = <2>;
 	};
 
 	thermal_zones: thermal-zones {

@@ -90,6 +90,18 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x18000000 0x20000>;
 
+		ip_en_rst: reset-controller@600 {
+			compatible = "snps,dw-low-reset";
+			#reset-cells = <1>;
+			reg = <0x600 0x4>;
+		};
+
+		ip_en_rst1: reset-controller@63c {
+			compatible = "snps,dw-low-reset";
+			#reset-cells = <1>;
+			reg = <0x63c 0x4>;
+		};
+
 		ecc0: ecc@1a600 {
 			compatible = "realtek,rtl9301-ecc";
 			reg = <0x1a600 0x54>;
@@ -191,6 +203,57 @@
 
 			status = "disabled";
 		};
+	};
+
+	usb2_phy: usb-phy@18140200 {
+		compatible = "realtek,rtl9607-usb2phy";
+		reg = <0x18140200 0x10>, <0x180210a4 0x4>;
+		#phy-cells = <0>;
+		resets = <&ip_en_rst 31>;
+		reset-names = "p1-usb2phy";
+	};
+
+	ochi: ohci@18020000 {
+		compatible = "generic-ohci";
+		reg = <0x18020000 0x200>;
+		phys = <&usb2_phy>;
+		phy-names = "usb2-phy";
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED 51 IRQ_TYPE_LEVEL_HIGH>;
+		resets = <&ip_en_rst 3>;
+		reset-names = "p1-host";
+		force-little-endian;
+	};
+
+	ehci: ehci@18021000 {
+		compatible = "generic-ehci";
+		reg = <0x18021000 0x200>;
+		phys = <&usb2_phy>;
+		phy-names = "usb2-phy";
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED 51 IRQ_TYPE_LEVEL_HIGH>;
+		resets = <&ip_en_rst 3>;
+		reset-names = "p1-host";
+		force-little-endian;
+	};
+
+	usb3_phy: usb-phy@18140100 {
+		compatible = "realtek,rtl9607-usb3phy";
+		reg = <0x18140100 0x10>;
+		#phy-cells = <0>;
+		resets = <&ip_en_rst1 31>, <&ip_en_rst1 26>, <&ip_en_rst 29>, <&ip_en_rst 30>;
+		reset-names = "usb3-sel-axi", "usb3-axi", "usb3-phy", "p0-usb2phy";
+	};
+
+	xhci: xhci@18060000 {
+		compatible = "generic-xhci";
+		reg = <0x18060000 0xf000>;
+		phys = <&usb3_phy>;
+		phy-names = "usb3-phy";
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SHARED 52 IRQ_TYPE_LEVEL_HIGH>;
+		resets = <&ip_en_rst1 30>, <&ip_en_rst 4>, <&ip_en_rst 5>;
+		reset-names = "usb2host-mux", "p0-usbhost0", "p0-usbhost1";
 	};
 
 	i2cclock: i2cclock {

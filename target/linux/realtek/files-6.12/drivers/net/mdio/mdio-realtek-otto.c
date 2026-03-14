@@ -111,10 +111,10 @@
 	for (int addr = 0; addr < (ctrl)->cfg->num_phys; addr++) \
 		if ((ctrl)->smi_bus[addr] >= 0)
 
-#define RTMDIO_960X_CMD_FAIL			BIT(1)
+#define RTMDIO_960X_CMD_FAIL			BIT(0)
 #define RTMDIO_960X_CMD_READ_C22		0
 #define RTMDIO_960X_CMD_READ_C45		BIT(3)
-#define RTMDIO_960X_CMD_WRITE_C22		BIT(4)
+#define RTMDIO_960X_CMD_WRITE_C22		BIT(4) | BIT(1)
 #define RTMDIO_960X_CMD_WRITE_C45		BIT(3) | BIT(4)
 #define RTMDIO_960X_CMD_MASK			GENMASK(4, 0)
 #define RTMDIO_960X_CFG_POLL_MDX_CTRL		(0x23028)
@@ -145,6 +145,9 @@
 #define RTMDIO_960X_WRAP_GPHY_MISC		(0x114)
 #define RTMDIO_960X_PHY_PATCH_DONE		BIT(0)
 #define RTMDIO_960X_OCP_PHY_BASE		(0xa400)
+
+#define RTL9607C_MDIO_PORT 0
+
 /*
  * On all Realtek switch platforms the hardware periodically reads the link status of all
  * PHYs. This is to some degree programmable, so that one can tell the hardware to read
@@ -226,10 +229,12 @@ struct rtmdio_config {
 	int bus_port_map_base;
 	int (*read_mmd_phy)(struct mii_bus *bus, u32 addr, u32 devnum, u32 regnum, u32 *val);
 	int (*read_phy)(struct mii_bus *bus, u32 addr, u32 page, u32 reg, u32 *val);
+	int (*read_phy_nopage)(struct mii_bus *bus, u32 addr, u32 reg, u32 *val);
 	int (*reset)(struct mii_bus *bus);
 	void (*setup_polling)(struct mii_bus *bus);
 	int (*write_mmd_phy)(struct mii_bus *bus, u32 addr, u32 devnum, u32 regnum, u32 val);
 	int (*write_phy)(struct mii_bus *bus, u32 addr, u32 page, u32 reg, u32 val);
+	int (*write_phy_nopage)(struct mii_bus *bus, u32 addr, u32 reg, u32 val);
 };
 
 struct rtmdio_phy_info {
@@ -526,26 +531,30 @@ static int rtmdio_960x_run_cmd(struct mii_bus *bus, int cmd)
 			      RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_0, RTMDIO_960X_CMD_FAIL);
 }
 
-static int rtmdio_960x_write_phy(struct mii_bus *bus, u32 port, u32 page, u32 reg, u32 val)
+static int rtmdio_960x_write_phy(struct mii_bus *bus, u32 port, u32 reg, u32 val)
 {
 	struct rtmdio_ctrl *ctrl = bus->priv;
-	u64 mask = BIT_ULL(port);
 
-	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_2, (u32)mask);
+	regmap_update_bits(ctrl->map, RTMDIO_960X_CFG_POLL_MDX_ADDR + 4*RTL9607C_MDIO_PORT, GENMASK(4, 0), port);
+	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_BC_CTRL, RTL9607C_MDIO_PORT << 5);
+
+	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_2, 1<<RTL9607C_MDIO_PORT); // TODO WTF?
 	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_3, val);
-	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_0, reg << 6 | page << 11);
+	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_0, reg << 6 | (0x1FFF<<11) | RTMDIO_960X_CMD_WRITE_C22);
 	//regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_1, 0x1ff);
 
 	return rtmdio_960x_run_cmd(bus, RTMDIO_960X_CMD_WRITE_C22);
 }
 
-static int rtmdio_960x_read_phy(struct mii_bus *bus, u32 port, u32 page, u32 reg, u32 *val)
+static int rtmdio_960x_read_phy(struct mii_bus *bus, u32 port, u32 reg, u32 *val)
 {
 	struct rtmdio_ctrl *ctrl = bus->priv;
 	int err;
 
-	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_BC_CTRL, port << 5);
-	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_0, reg << 6 | page << 11);
+	regmap_update_bits(ctrl->map, RTMDIO_960X_CFG_POLL_MDX_ADDR + 4*RTL9607C_MDIO_PORT, GENMASK(4, 0), port);
+	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_BC_CTRL, RTL9607C_MDIO_PORT << 5);
+
+	regmap_write(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_0, reg << 6 | (0x1FFF<<11) | RTMDIO_960X_CMD_READ_C22);
 	err = rtmdio_960x_run_cmd(bus, RTMDIO_960X_CMD_READ_C22);
 	if (!err)
 		err = regmap_read(ctrl->map, RTMDIO_960X_SMI_INDRT_ACCESS_CTRL_3, val);
@@ -676,6 +685,22 @@ static int rtmdio_read(struct mii_bus *bus, int addr, int regnum)
 	return err ? err : val;
 }
 
+static int rtmdio_read_nopage(struct mii_bus *bus, int addr, int regnum)
+{
+	struct rtmdio_ctrl *ctrl = bus->priv;
+	int err, val;
+
+	if (addr >= ctrl->cfg->num_phys)
+		return -ENODEV;
+
+	ctrl->raw[addr] = (ctrl->page[addr] == ctrl->cfg->raw_page);
+
+	err = (*ctrl->cfg->read_phy_nopage)(bus, addr, regnum, &val);
+	pr_debug("rd_PHY(adr=%d, reg=%d) = %d, err = %d\n",
+		 addr, regnum, val, err);
+	return err ? err : val;
+}
+
 static int rtmdio_write_c45(struct mii_bus *bus, int addr, int devnum, int regnum, u16 val)
 {
 	struct rtmdio_ctrl *ctrl = bus->priv;
@@ -714,6 +739,20 @@ static int rtmdio_write(struct mii_bus *bus, int addr, int regnum, u16 val)
 
 	ctrl->raw[addr] = false;
 	return 0;
+}
+
+static int rtmdio_write_nopage(struct mii_bus *bus, int addr, int regnum, u16 val)
+{
+	struct rtmdio_ctrl *ctrl = bus->priv;
+	int err;
+
+	if (addr >= ctrl->cfg->num_phys)
+		return -ENODEV;
+
+	err = (*ctrl->cfg->write_phy_nopage)(bus, addr, regnum, val);
+	pr_debug("wr_PHY(adr=%d, reg=%d, val=%d) err = %d\n",
+		 addr, regnum, val, err);
+	return err;
 }
 
 static void rtmdio_setup_smi_topology(struct mii_bus *bus)
@@ -1038,10 +1077,12 @@ static int rtmdio_960x_reset(struct mii_bus *bus)
 	msleep(10);
 
 	/* enable MDIO master PAD_LED0/PAD_LED1 ## */
-	regmap_update_bits(ctrl->map, RTMDIO_960X_IO_MODE_EN, GENMASK(11, 10), GENMASK(11, 10));
+	regmap_update_bits(ctrl->map, RTMDIO_960X_IO_MODE_EN, BIT(10 + RTL9607C_MDIO_PORT) |GENMASK(9,8), BIT(10 + RTL9607C_MDIO_PORT)|GENMASK(9,8));
 
 	/* Enable MDC0/MDC1 mdc1_5M mdc0_1.25M */
-	regmap_update_bits(ctrl->map, RTMDIO_960X_CFG_POLL_MDX_CTRL, GENMASK(20, 19), GENMASK(20, 19));
+	regmap_update_bits(ctrl->map, RTMDIO_960X_CFG_POLL_MDX_CTRL, GENMASK(20, 19)|GENMASK(5, 4), GENMASK(20, 19));
+	regmap_write(ctrl->map, RTMDIO_960X_CFG_POLL_MDX_ADDR + 4*0, 0);
+	regmap_write(ctrl->map, RTMDIO_960X_CFG_POLL_MDX_ADDR + 4*1, 1<<5);
 
 	msleep(10);
 
@@ -1052,7 +1093,7 @@ static int rtmdio_960x_reset(struct mii_bus *bus)
 			c45_mask |= 0x2 << (i * 2);  /* Std. C45, non-standard is 0x3 */
 	}
 
-	regmap_update_bits(ctrl->map, RTMDIO_960X_CFG_POLL_CTRL_0, GENMASK(3, 0), c45_mask);
+	regmap_update_bits(ctrl->map, RTMDIO_960X_CFG_POLL_CTRL_0, GENMASK(3, 0), /*c45_mask*/0);
 
 	return 0;
 }
@@ -1203,13 +1244,19 @@ static int rtmdio_probe(struct platform_device *pdev)
 
 	bus->name = "Realtek MDIO bus";
 	bus->reset = rtmdio_reset;
-	bus->read = rtmdio_read;
-	bus->write = rtmdio_write;
+	if (ctrl->cfg->read_phy && ctrl->cfg->write_phy) {
+		bus->read = rtmdio_read;
+		bus->write = rtmdio_write;
+	} else if (ctrl->cfg->read_phy_nopage && ctrl->cfg->write_phy_nopage) {
+		bus->read = rtmdio_read_nopage;
+		bus->write = rtmdio_write_nopage;
+	}
 	bus->read_c45 = rtmdio_read_c45;
 	bus->write_c45 = rtmdio_write_c45;
 	bus->parent = dev;
 	bus->phy_mask = ~0;
-	snprintf(bus->id, MII_BUS_ID_SIZE, "realtek-mdio");
+	static int inc = 0;
+	snprintf(bus->id, MII_BUS_ID_SIZE, "realtek-mdio-%d", inc++);
 
 	device_set_node(&bus->dev, of_fwnode_handle(dev->of_node));
 
@@ -1269,8 +1316,8 @@ static const struct rtmdio_config rtmdio_930x_cfg = {
 static const struct rtmdio_config rtmdio_931x_cfg = {
 	.num_phys	= 56,
 	.raw_page	= 8191,
-	.bus_map_base	= RTMDIO_931X_SMI_PORT_POLLING_SEL,
-	.port_map_base	= RTMDIO_931X_SMI_PORT_ADDR_CTRL,
+//	.bus_map_base	= RTMDIO_931X_SMI_PORT_POLLING_SEL,
+//	.port_map_base	= RTMDIO_931X_SMI_PORT_ADDR_CTRL,
 	.read_mmd_phy	= rtmdio_931x_read_mmd_phy,
 	.read_phy	= rtmdio_931x_read_phy,
 	.reset		= rtmdio_931x_reset,
@@ -1284,11 +1331,11 @@ static const struct rtmdio_config rtmdio_960x_ext_cfg = {
 	.raw_page	= 8191,
 	.bus_port_map_base = RTMDIO_960X_CFG_POLL_MDX_ADDR,
 	.read_mmd_phy	= rtmdio_960x_read_mmd_phy,
-	.read_phy	= rtmdio_960x_read_phy,
+	.read_phy_nopage	= rtmdio_960x_read_phy,
 	.reset		= rtmdio_960x_reset,
 	.setup_polling	= rtmdio_960x_setup_polling,
 	.write_mmd_phy	= rtmdio_960x_write_mmd_phy,
-	.write_phy	= rtmdio_960x_write_phy,
+	.write_phy_nopage	= rtmdio_960x_write_phy,
 };
 
 static const struct rtmdio_config rtmdio_960x_int_cfg = {

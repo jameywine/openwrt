@@ -215,6 +215,7 @@ struct rtmdio_config {
 	int raw_page;
 	int bus_map_base;
 	int port_map_base;
+	const char *bus_subid;
 	int (*read_mmd_phy)(struct mii_bus *bus, u32 addr, u32 devnum, u32 regnum, u32 *val);
 	int (*read_phy)(struct mii_bus *bus, u32 addr, u32 page, u32 reg, u32 *val);
 	int (*reset)(struct mii_bus *bus);
@@ -976,6 +977,10 @@ static int rtmdio_map_ports(struct device *dev)
 		if (!phy)
 			continue;
 
+		// Current PHY belongs to another MDIO controller
+		if (dev->of_node != phy->parent->parent)
+			continue;
+
 		if (addr >= ctrl->cfg->num_phys)
 			return dev_err_probe(dev, -EINVAL, "%pfwP illegal port number\n",
 					     of_fwnode_handle(port));
@@ -1036,7 +1041,12 @@ static int rtmdio_probe_one(struct device *dev, struct rtmdio_ctrl *ctrl)
 	}
 	bus->parent = dev;
 	bus->phy_mask = ~0;
-	snprintf(bus->id, MII_BUS_ID_SIZE, "realtek-mdio");
+	if (ctrl->cfg->bus_subid) {
+		snprintf(bus->id, MII_BUS_ID_SIZE, "realtek-mdio-%s", ctrl->cfg->bus_subid);
+	} else {
+		snprintf(bus->id, MII_BUS_ID_SIZE, "realtek-mdio");
+	}
+
 	device_set_node(&bus->dev, of_fwnode_handle(dev->of_node));
 
 	ret = devm_mdiobus_register(dev, bus);
@@ -1145,6 +1155,7 @@ static const struct rtmdio_config rtmdio_931x_cfg = {
 static const struct rtmdio_config rtmdio_960x_int_cfg = {
 	.num_phys	= 4,
 	.raw_page	= 4095,
+	.bus_subid	= "int",
 	.read_phy	= rtmdio_960x_read_internal_phy,
 	.reset		= rtmdio_960x_internal_reset,
 	.write_phy	= rtmdio_960x_write_internal_phy,

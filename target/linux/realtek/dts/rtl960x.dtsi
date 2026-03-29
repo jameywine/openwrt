@@ -281,6 +281,18 @@
 			};
 		};
 
+		mdio_ext_ctrl: mdio-controller@1 {
+			compatible = "realtek,rtl9607-ext-mdio", "realtek,otto-mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mdio_bus1: mdio-bus@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
+
 		mdio_serdes: mdio-serdes {
 			compatible = "realtek,rtl9607-serdes-mdio", "realtek,otto-serdes-mdio";
 		};

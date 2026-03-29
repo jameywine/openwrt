@@ -130,6 +130,11 @@
 	pinmux_gpio1_leds: gpio1-leds {
 		pinctrl-single,bits = <0x4 0x1000048 0x1000048>;
 	};
+
+	// GPIO 60 -> GPIO1 28
+	pinmux_gpio1_rtl8221_reset: rtl8221-reset {
+		pinctrl-single,bits = <0x4 0x10000000 0x10000000>;
+	};
 };
 
 &i2c_mst1 {
@@ -199,11 +204,27 @@
 	INTERNAL_PHY(3)
 };
 
+&mdio_bus1 {
+	phy6: ethernet-phy@6 {
+		reg = <6>;
+		compatible = "ethernet-phy-id001c.c849", "ethernet-phy-ieee802.3-c22";
+
+		reset-gpios = <&gpio1 28 GPIO_ACTIVE_LOW>;
+		reset-deassert-us = <70000>; /* at least 68ms */
+		reset-assert-us = <15000>; /* 15ms */
+		pinctrl-0 = <&pinmux_gpio1_rtl8221_reset>;
+		pinctrl-names = "default";
+	};
+};
+
 &switch0 {
 	ethernet-ports {
 		SWITCH_PORT(0, 1, internal)
 		SWITCH_PORT(1, 2, internal)
 		SWITCH_PORT(2, 3, internal)
 		SWITCH_PORT(3, 4, internal)
+
+		// Port6 - HSGMII, WAN
+		SWITCH_PORT(6, 7, hsgmii)
 	};
 };

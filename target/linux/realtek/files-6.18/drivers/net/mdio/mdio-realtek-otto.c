@@ -107,6 +107,16 @@
 #define RTMDIO_931X_SMI_10GPHY_POLLING_SEL3	(0x0CFC)
 #define RTMDIO_931X_SMI_10GPHY_POLLING_SEL4	(0x0D00)
 
+#define RTMDIO_960X_GPHY_IND_WD			(0x0)
+#define RTMDIO_960X_GPHY_IND_CMD		(0x4)
+#define RTMDIO_960X_GPHY_CMD_WREN		BIT(22)
+#define RTMDIO_960X_GPHY_CMD_EN			BIT(21)
+#define RTMDIO_960X_GPHY_IND_RD			(0x8)
+#define RTMDIO_960X_GPHY_BUSY			BIT(16)
+#define RTMDIO_960X_WRAP_GPHY_MISC		(0x114)
+#define RTMDIO_960X_PHY_PATCH_DONE		BIT(0)
+#define RTMDIO_960X_OCP_PHY_BASE		(0xa400)
+
 #define for_each_phy(ctrl, addr) \
 	for_each_set_bit(addr, ctrl->valid_ports, RTMDIO_MAX_PHY)
 
@@ -514,6 +524,52 @@ static int rtmdio_931x_write_mmd_phy(struct mii_bus *bus, u32 addr, u32 devnum, 
 	return rtmdio_931x_run_cmd(bus, RTMDIO_931X_CMD_WRITE_C45);
 }
 
+static int rtmdio_960x_internal_run_cmd(struct mii_bus *bus, u32 port, u32 addr, u32 cmd)
+{
+	struct rtmdio_ctrl *ctrl = rtmdio_ctrl_from_bus(bus);
+	int ret, val;
+
+	ret = regmap_write(ctrl->map, RTMDIO_960X_GPHY_IND_CMD, cmd | port << 16 | addr);
+
+	ret = regmap_read_poll_timeout(ctrl->map, RTMDIO_960X_GPHY_IND_RD, val, !(val & RTMDIO_960X_GPHY_BUSY), 20, 500000);
+	if (ret)
+		WARN_ONCE(1, "internal mdio bus access timed out\n");
+
+	return ret;
+}
+
+static int rtmdio_960x_write_internal_phy(struct mii_bus *bus, u32 port, u32 page, u32 reg, u32 val)
+{
+	struct rtmdio_ctrl *ctrl = rtmdio_ctrl_from_bus(bus);
+	u32 ocp_addr = RTMDIO_960X_OCP_PHY_BASE + reg * 2;
+
+	if (reg > 15  && reg < 24)
+		ocp_addr = ((page & ctrl->cfg->raw_page) << 4) + (reg - 16) * 2;
+
+	regmap_write(ctrl->map, RTMDIO_960X_GPHY_IND_WD, val);
+
+	return rtmdio_960x_internal_run_cmd(bus, port, ocp_addr, RTMDIO_960X_GPHY_CMD_WREN | RTMDIO_960X_GPHY_CMD_EN);
+}
+
+static int rtmdio_960x_read_internal_phy(struct mii_bus *bus, u32 port, u32 page, u32 reg, u32 *val)
+{
+	struct rtmdio_ctrl *ctrl = rtmdio_ctrl_from_bus(bus);
+	u32 ocp_addr = RTMDIO_960X_OCP_PHY_BASE + reg * 2;
+	int err;
+
+	if (reg > 15  && reg < 24)
+		ocp_addr = ((page & ctrl->cfg->raw_page) << 4) + (reg - 16) * 2;
+
+	err = rtmdio_960x_internal_run_cmd(bus, port, ocp_addr, RTMDIO_960X_GPHY_CMD_EN);
+
+	if (!err)
+		err = regmap_read(ctrl->map, RTMDIO_960X_GPHY_IND_RD, val);
+	if (!err)
+		*val &= 0xffff;
+
+	return err;
+}
+
 static int rtmdio_read_c45(struct mii_bus *bus, int phy, int devnum, int regnum)
 {
 	struct rtmdio_ctrl *ctrl = rtmdio_ctrl_from_bus(bus);
@@ -864,6 +920,29 @@ static void rtmdio_931x_setup_polling(struct mii_bus *bus)
 	}
 }
 
+static int rtmdio_960x_internal_reset(struct mii_bus *bus)
+{
+	struct rtmdio_ctrl *ctrl = rtmdio_ctrl_from_bus(bus);
+	int port;
+	u32 val;
+	/*
+	 * PHY_PATCH_DONE enables phy control via SoC. This is required for phy access,
+	 * including patching. Must always be set before the phys are probed.
+	 */
+	regmap_update_bits(ctrl->map, RTMDIO_960X_WRAP_GPHY_MISC,
+			   RTMDIO_960X_PHY_PATCH_DONE, RTMDIO_960X_PHY_PATCH_DONE);
+
+	for (port = 0; port <= 4; port++) {
+		rtmdio_960x_read_internal_phy(bus, 0, port, 0, &val);
+
+		dev_info(bus->parent, "Port %d, BCMR read 0x%04x (power-down=%d)\n", port, val, !!(val & BIT(11)));
+	}
+
+	msleep(100);
+
+	return 0;
+}
+
 static int rtmdio_reset(struct mii_bus *bus)
 {
 	struct rtmdio_ctrl *ctrl = rtmdio_ctrl_from_bus(bus);
@@ -951,8 +1030,10 @@ static int rtmdio_probe_one(struct device *dev, struct rtmdio_ctrl *ctrl)
 	bus->reset = rtmdio_reset;
 	bus->read = rtmdio_read;
 	bus->write = rtmdio_write;
-	bus->read_c45 = rtmdio_read_c45;
-	bus->write_c45 = rtmdio_write_c45;
+	if (ctrl->cfg->read_mmd_phy && ctrl->cfg->write_mmd_phy) {
+		bus->read_c45 = rtmdio_read_c45;
+		bus->write_c45 = rtmdio_write_c45;
+	}
 	bus->parent = dev;
 	bus->phy_mask = ~0;
 	snprintf(bus->id, MII_BUS_ID_SIZE, "realtek-mdio");
@@ -1061,6 +1142,14 @@ static const struct rtmdio_config rtmdio_931x_cfg = {
 	.write_phy	= rtmdio_931x_write_phy,
 };
 
+static const struct rtmdio_config rtmdio_960x_int_cfg = {
+	.num_phys	= 4,
+	.raw_page	= 4095,
+	.read_phy	= rtmdio_960x_read_internal_phy,
+	.reset		= rtmdio_960x_internal_reset,
+	.write_phy	= rtmdio_960x_write_internal_phy,
+};
+
 static const struct of_device_id rtmdio_ids[] = {
 	{
 		.compatible = "realtek,rtl8380-mdio",
@@ -1077,6 +1166,10 @@ static const struct of_device_id rtmdio_ids[] = {
 	{
 		.compatible = "realtek,rtl9311-mdio",
 		.data = &rtmdio_931x_cfg,
+	},
+	{
+		.compatible = "realtek,rtl9607-int-mdio",
+		.data = &rtmdio_960x_int_cfg,
 	},
 	{ /* sentinel */ }
 };

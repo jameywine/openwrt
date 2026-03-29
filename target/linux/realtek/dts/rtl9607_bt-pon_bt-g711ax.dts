@@ -191,3 +191,19 @@
 		};
 	};
 };
+
+&mdio_bus0 {
+	INTERNAL_PHY(0)
+	INTERNAL_PHY(1)
+	INTERNAL_PHY(2)
+	INTERNAL_PHY(3)
+};
+
+&switch0 {
+	ethernet-ports {
+		SWITCH_PORT(0, 1, internal)
+		SWITCH_PORT(1, 2, internal)
+		SWITCH_PORT(2, 3, internal)
+		SWITCH_PORT(3, 4, internal)
+	};
+};

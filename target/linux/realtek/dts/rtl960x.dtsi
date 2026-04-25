@@ -106,6 +106,7 @@
 		ecc0: ecc@1a600 {
 			compatible = "realtek,rtl9301-ecc";
 			reg = <0x1a600 0x54>;
+			big-endian;
 
 			status = "disabled";
 		};
@@ -128,6 +129,7 @@
 			clocks = <&ccu CLK_LXB>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			big-endian;
 		};
 
 		watchdog0: watchdog@3260 {
@@ -142,6 +144,7 @@
 			interrupt-parent = <&gic>;
 			interrupt-names = "phase1", "phase2";
 			interrupts = <GIC_SHARED 33 IRQ_TYPE_LEVEL_HIGH>, <GIC_SHARED 34 IRQ_TYPE_LEVEL_HIGH>;
+			big-endian;
 		};
 
 		gpio0: gpio-controller@3300 {
@@ -151,6 +154,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <32>;
+			big-endian;
 
 			interrupt-controller;
 			#interrupt-cells = <2>;
@@ -165,6 +169,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <32>;
+			big-endian;
 
 			interrupt-controller;
 			#interrupt-cells = <2>;
@@ -179,6 +184,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <32>;
+			big-endian;
 
 			interrupt-controller;
 			#interrupt-cells = <2>;
@@ -276,6 +282,7 @@
 		resets = <&soc_init_rst 0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+		big-endian;
 
 		ethernet-ports {
 			#address-cells = <1>;

@@ -105,6 +105,7 @@
 		ecc0: ecc@1a600 {
 			compatible = "realtek,rtl9301-ecc";
 			reg = <0x1a600 0x54>;
+			big-endian;
 
 			status = "disabled";
 		};
@@ -127,6 +128,7 @@
 			clocks = <&ccu CLK_LXB>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			big-endian;
 		};
 
 		watchdog0: watchdog@3260 {
@@ -141,6 +143,7 @@
 			interrupt-parent = <&gic>;
 			interrupt-names = "phase1", "phase2";
 			interrupts = <GIC_SHARED 33 IRQ_TYPE_LEVEL_HIGH>, <GIC_SHARED 34 IRQ_TYPE_LEVEL_HIGH>;
+			big-endian;
 		};
 
 		gpio0: gpio-controller@3300 {
@@ -253,6 +256,7 @@
 			#size-cells = <0>;
 			clocks = <&i2cclock>;
 			realtek,scl = <0>;
+			big-endian;
 
 			status = "disabled";
 		};
@@ -264,6 +268,7 @@
 			#size-cells = <0>;
 			clocks = <&i2cclock>;
 			realtek,scl = <1>;
+			big-endian;
 
 			status = "disabled";
 		};
@@ -271,6 +276,7 @@
 		soc_thermal: thermal {
 			compatible = "realtek,rtl9607-thermal";
 			#thermal-sensor-cells = <0>;
+			big-endian;
 		};
 	};
 

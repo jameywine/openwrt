@@ -89,6 +89,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x18000000 0x20000>;
+		big-endian;
 
 		ip_en_rst: reset-controller@600 {
 			compatible = "snps,dw-low-reset";
@@ -245,6 +246,7 @@
 		reg = <0x1b000000 0x1000000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+		big-endian;
 
 		i2c_mst1: i2c@b4 {
 			compatible = "realtek,rtl9607-i2c";

@@ -25,6 +25,17 @@ realtek_setup_interfaces()
 
 	ucidef_set_bridge_device switch
 	ucidef_set_interface_lan "$lan_list"
+	case $board in
+	bt-pon,bt-g711ax)
+		# LAN: eth0.2 eth0.3 eth0.4 eth0.5 (switch ports 0-3 via VLAN 2)
+		# WAN: eth0.1 (switch port 5 via VLAN 1, Ethernet-as-WAN)
+		ucidef_set_interfaces_lan_wan "eth0.2 eth0.3 eth0.4 eth0.5" "eth0.1"
+	;;
+	*)
+		ucidef_set_bridge_device switch
+		ucidef_set_interface_lan "$lan_list"
+		;;
+	esac
 }
 
 realtek_setup_macs_lan()

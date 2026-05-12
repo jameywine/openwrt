@@ -230,6 +230,16 @@
 
 			status = "disabled";
 		};
+
+		ethernet0: ethernet@12000 {
+			compatible = "realtek,rtl9607-eth";
+			reg = <0x12000 0x2000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SHARED 36 IRQ_TYPE_LEVEL_HIGH>;
+			realtek,switchcore = <&switchcore>;
+			resets = <&ip_en_rst 1>;
+			reset-names = "gmac";
+		};
 	};
 
 	i2cclock: i2cclock {
@@ -240,7 +250,7 @@
 		clock-frequency = <62500000>;
 	};
 
-	switchcore@1b000000 {
+	switchcore: switchcore@1b000000 {
 		compatible = "syscon", "simple-mfd";
 		reg = <0x1b000000 0x1000000>;
 		#address-cells = <1>;

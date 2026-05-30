@@ -64,9 +64,9 @@ enum rteth_registers {
 	RTETH_MIB6		= 0x0028,
 	RTETH_STS		= 0x0034,
 	RTETH_CMD		= 0x0038,
-#define RTETH_JUMBO		BIT(3)
-#define RTETH_RX_VLAN		BIT(2)
-#define RTETH_RX_CHKSUM		BIT(1)
+#define RTETH_JUMBO		BIT(27)
+#define RTETH_RX_VLAN		BIT(26)
+#define RTETH_RX_CHKSUM		BIT(25)
 #define RTETH_RESET		BIT(0)
 
 	RTETH_INTR		= 0x003c,	/* interrupt control mask + status */
@@ -274,15 +274,16 @@ enum rteth_tx_desc_bit {
 
 struct rteth_tx_desc {
 	__be32 opts1;
-	__be32 opts2;
 	__be32 addr;
+	__be32 opts2;
 	__be32 opts3;
+	__be32 opts4;
 } __packed;
 
 struct rteth_rx_desc {
 	__be32 opts1;
-	__be32 opts2;
 	__be32 addr;
+	__be32 opts2;
 	__be32 opts3;
 } __packed;
 

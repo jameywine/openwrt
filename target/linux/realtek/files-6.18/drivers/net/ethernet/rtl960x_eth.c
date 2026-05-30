@@ -191,6 +191,7 @@ static int rteth_alloc_tx_ring(struct rteth_priv *priv)
 		priv->tx.desc[i].addr = 0;
 		priv->tx.desc[i].opts2 = 0;
 		priv->tx.desc[i].opts3 = 0;
+		priv->tx.desc[i].opts4 = 0;
 	}
 	/* Set End-of-Ring on last descriptor */
 	priv->tx.desc[RTETH_TX_RING_SIZE - 1].opts1 = RTETH_RING_END;
@@ -260,9 +261,12 @@ err_free:
 		dev_kfree_skb(priv->rx.skb[i]);
 	}
 	kfree(priv->rx.skb);
+	priv->rx.skb = NULL;
 	dma_free_coherent(dev,
 			  RTETH_RX_RING_SIZE * sizeof(struct rteth_rx_desc),
 			  priv->rx.desc, priv->rx.desc_dma);
+	priv->rx.desc = NULL;
+	priv->rx.desc_dma = 0;
 	return -ENOMEM;
 }
 
@@ -283,6 +287,8 @@ static void rteth_free_tx_ring(struct rteth_priv *priv)
 	dma_free_coherent(dev,
 			  RTETH_TX_RING_SIZE * sizeof(struct rteth_tx_desc),
 			  priv->tx.desc, priv->tx.desc_dma);
+	priv->tx.desc = NULL;
+	priv->tx.desc_dma = 0;
 }
 
 static void rteth_free_rx_ring(struct rteth_priv *priv)
@@ -299,9 +305,12 @@ static void rteth_free_rx_ring(struct rteth_priv *priv)
 		}
 	}
 	kfree(priv->rx.skb);
+	priv->rx.skb = NULL;
 	dma_free_coherent(dev,
 			  RTETH_RX_RING_SIZE * sizeof(struct rteth_rx_desc),
 			  priv->rx.desc, priv->rx.desc_dma);
+	priv->rx.desc = NULL;
+	priv->rx.desc_dma = 0;
 }
 
 /*
@@ -493,6 +502,9 @@ static netdev_tx_t rteth_start_xmit(struct sk_buff *skb,
 	u32 opts1;
 	int entry;
 
+	// TMP until IRQ fix
+	napi_schedule(&priv->napi);
+
 	spin_lock_bh(&priv->tx_lock);
 
 	/* Reclaim completed TX buffers */
@@ -611,6 +623,9 @@ static int rteth_rx_poll(struct napi_struct *napi, int budget)
 		dma_unmap_single(dma_dev, rxd->addr,
 				 RTETH_BUF_SIZE, DMA_FROM_DEVICE);
 
+		if (opts1 & RTETH_FIRST_FRAG) {
+			skb_reserve(skb, 2); // HW DMA start at 4N+2 only in FS
+		}
 		skb_put(skb, pkt_len);
 		skb->protocol = eth_type_trans(skb, dev);
 		skb->ip_summed = CHECKSUM_NONE;

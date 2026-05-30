@@ -532,29 +532,7 @@ static netdev_tx_t rteth_start_xmit(struct sk_buff *skb,
 	/* Set buffer address */
 	txd->addr = dma_addr;
 
-	/*
-	 * VLAN-aware CPU tag TX port mask:
-	 * When upper layer sends on eth0.1 (WAN, VLAN 1), forward only to
-	 * switch port 5. When sending on eth0.2-5 (LAN, VLAN 2), forward to
-	 * LAN ports 0-3 only. Untagged/unknown → all ports (let switch ALE
-	 * do MAC learning and decide, should not happen in normal operation).
-	 *
-	 * opts2: bit31=cputag, bits[26:16]=tx_portmask (11 bits)
-	 */
-	{
-		u32 portmask;
-		u16 vid = skb_vlan_tag_present(skb) ? skb_vlan_tag_get_id(skb) : 0;
-
-		if (vid == RTETH_960X_WAN_VID)
-			portmask = RTETH_960X_WAN_PORT_MASK;
-		else if (vid == RTETH_960X_LAN_VID || vid == 0)
-			portmask = RTETH_960X_LAN_PORT_MASK;
-		else
-			portmask = RTETH_960X_TX_ALL_PORTMASK;
-
-		txd->opts2 = RTETH_TX_CPUTAG_GEN |
-			     FIELD_PREP(RTETH_TX_PORTMASK, portmask);
-	}
+	txd->opts2 = RTETH_TX_CPUTAG_GEN;
 	txd->opts3 = 0;
 
 	/* Set opts1 last (contains OWN bit) - memory barrier before */
@@ -636,29 +614,6 @@ static int rteth_rx_poll(struct napi_struct *napi, int budget)
 		skb_put(skb, pkt_len);
 		skb->protocol = eth_type_trans(skb, dev);
 		skb->ip_summed = CHECKSUM_NONE;
-
-		/*
-		 * RX VLAN tagging from CPU tag descriptor:
-		 * The switch appends CPU tag info in opts3[19:16] = src_port_num.
-		 * We use this to push a VLAN tag so the kernel bridge/routing
-		 * knows which sub-interface (eth0.1 WAN or eth0.2-5 LAN) to
-		 * deliver the packet to.
-		 *
-		 * Port 5 (WAN)    → VLAN 1  → eth0.1
-		 * Ports 0-3 (LAN) → VLAN 2  → eth0.2/3/4/5
-		 */
-		{
-			u32 opts3 = rxd->opts3;
-			u32 src_port = FIELD_GET(RTETH_RX_SRC_PORT, opts3);
-			u16 vid;
-
-			if (src_port == RTETH_960X_WAN_PORT)
-				vid = RTETH_960X_WAN_VID;
-			else
-				vid = RTETH_960X_LAN_VID;
-
-			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vid);
-		}
 
 		napi_gro_receive(napi, skb);
 
@@ -879,21 +834,6 @@ static void rteth_tx_timeout(struct net_device *dev, unsigned int txqueue)
 	netif_wake_queue(dev);
 }
 
-static int rteth_vlan_rx_add_vid(struct net_device *dev,
-				    __be16 proto, u16 vid)
-{
-	/* The hardware switch handles VLAN forwarding via port isolation
-	 * and CPU tag descriptors. No per-VLAN filter table update needed
-	 * for our simple WAN/LAN topology; just accept all VIDs. */
-	return 0;
-}
-
-static int rteth_vlan_rx_kill_vid(struct net_device *dev,
-				     __be16 proto, u16 vid)
-{
-	return 0;
-}
-
 static const struct net_device_ops rteth_netdev_ops = {
 	.ndo_open		= rteth_open,
 	.ndo_stop		= rteth_close,
@@ -901,8 +841,6 @@ static const struct net_device_ops rteth_netdev_ops = {
 	.ndo_set_rx_mode	= rteth_set_rx_mode,
 	.ndo_set_mac_address	= rteth_set_mac_address,
 	.ndo_tx_timeout		= rteth_tx_timeout,
-	.ndo_vlan_rx_add_vid	= rteth_vlan_rx_add_vid,
-	.ndo_vlan_rx_kill_vid	= rteth_vlan_rx_kill_vid,
 	.ndo_validate_addr	= eth_validate_addr,
 };
 
@@ -1006,14 +944,14 @@ static int rteth_probe(struct platform_device *pdev)
 	 * Enable hardware VLAN acceleration. The driver uses __vlan_hwaccel_put_tag()
 	 * on RX to tag packets with the source switch port VLAN, and reads
 	 * skb_vlan_tag_get_id() on TX to select the correct switch port mask.
-	 * This allows Linux 802.1Q to create eth0.1 (WAN) and eth0.2-5 (LAN)
-	 * sub-interfaces without kernel software VLAN processing overhead.
 	 */
 	/* TODO Add more features for Jumbo, RX checksum */
+	/* Unsupported for now
 	netdev->features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
 	NETIF_F_HW_VLAN_CTAG_FILTER;
 	netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
 	NETIF_F_HW_VLAN_CTAG_FILTER;
+	*/
 
 	/* Initialize NAPI */
 	netif_napi_add(netdev, &priv->napi, rteth_rx_poll);

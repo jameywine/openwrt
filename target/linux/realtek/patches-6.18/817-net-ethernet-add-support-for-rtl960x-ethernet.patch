@@ -1,0 +1,26 @@
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -187,6 +187,13 @@ config NET_RTL838X
+ 	help
+ 	  Say Y here if you want to use the Realtek rtl838x Gbps Ethernet MAC.
+ 
++config NET_RTL960X
++	tristate "Realtek RTL960X Ethernet MAC support"
++	depends on MACH_REALTEK_RTL
++	select MFD_SYSCON
++	help
++	  Say Y here if you want to use the Realtek RTL960X Gbps Ethernet MAC.
++
+ source "drivers/net/ethernet/samsung/Kconfig"
+ source "drivers/net/ethernet/seeq/Kconfig"
+ source "drivers/net/ethernet/sgi/Kconfig"
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -84,6 +84,7 @@ obj-$(CONFIG_NET_VENDOR_RENESAS) += rene
+ obj-$(CONFIG_NET_VENDOR_RDC) += rdc/
+ obj-$(CONFIG_NET_VENDOR_ROCKER) += rocker/
+ obj-$(CONFIG_NET_RTL838X) += rtl838x_eth.o
++obj-$(CONFIG_NET_RTL960X) += rtl960x_eth.o
+ obj-$(CONFIG_NET_VENDOR_SAMSUNG) += samsung/
+ obj-$(CONFIG_NET_VENDOR_SEEQ) += seeq/
+ obj-$(CONFIG_NET_VENDOR_SILAN) += silan/

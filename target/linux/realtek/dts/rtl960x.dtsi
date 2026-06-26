@@ -144,6 +144,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <32>;
+			gpio-ranges = <&pinmux 0 0 32>;
 
 			interrupt-controller;
 			#interrupt-cells = <2>;
@@ -158,6 +159,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <32>;
+			gpio-ranges = <&pinmux 0 32 32>;
 
 			interrupt-controller;
 			#interrupt-cells = <2>;
@@ -172,6 +174,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <32>;
+			gpio-ranges = <&pinmux 0 64 32>;
 
 			interrupt-controller;
 			#interrupt-cells = <2>;
@@ -205,6 +208,9 @@
 			reg-shift = <2>;
 			fifo-size = <1>;
 			no-loopback-test;
+
+			pinctrl-0 = <&pinmux_uart0>;
+			pinctrl-names = "default";
 		};
 
 		uart1: uart@2100 {
@@ -221,6 +227,9 @@
 			reg-shift = <2>;
 			fifo-size = <1>;
 			no-loopback-test;
+
+			pinctrl-0 = <&pinmux_uart1>;
+			pinctrl-names = "default";
 
 			status = "disabled";
 		};
@@ -248,6 +257,9 @@
 			clocks = <&i2cclock>;
 			realtek,scl = <0>;
 
+			pinctrl-0 = <&pinmux_i2c0>;
+			pinctrl-names = "default";
+
 			status = "disabled";
 		};
 
@@ -259,6 +271,9 @@
 			clocks = <&i2cclock>;
 			realtek,scl = <1>;
 
+			pinctrl-0 = <&pinmux_i2c1>;
+			pinctrl-names = "default";
+
 			status = "disabled";
 		};
 
@@ -266,16 +281,28 @@
 			compatible = "realtek,rtl9607-thermal";
 			#thermal-sensor-cells = <0>;
 		};
-	};
 
-	pinmux: pinmux@1b000038 {
-		compatible = "pinctrl-single";
-		reg = <0x1b000038 0xc>;
+		pinmux: pinmux@1b000038 {
+			compatible = "realtek,rtl9607c-pinctrl";
+			#pinctrl-cells = <2>;
 
-		pinctrl-single,bit-per-mux;
-		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0x1>;
-		#pinctrl-cells = <2>;
+			pinmux_i2c0: i2c0 {
+				function = "i2c";
+				groups = "i2c0";
+			};
+			pinmux_i2c1: i2c1 {
+				function = "i2c";
+				groups = "i2c1";
+			};
+			pinmux_uart0: uart0 {
+				function = "uart";
+				groups = "uart0";
+			};
+			pinmux_uart1: uart1 {
+				function = "uart";
+				groups = "uart1";
+			};
+		};
 	};
 
 	thermal_zones: thermal-zones {

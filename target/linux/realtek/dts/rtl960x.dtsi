@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 
+#include "macros.dtsi"
 #include <dt-bindings/interrupt-controller/mips-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/clock/rtl83xx-clk.h>
@@ -270,11 +271,21 @@
 	};
 
 	switch0: ethernet-switch@1b000000 {
-		compatible = "syscon", "simple-mfd";
+		compatible = "realtek,rtl9607c-switch", "syscon", "simple-mfd";
 		reg = <0x1b000000 0x1000000>;
 		resets = <&soc_init_rst 0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		mdio {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			PHY_C22(0, 0)
+			PHY_C22(1, 1)
+			PHY_C22(2, 2)
+			PHY_C22(3, 3)
+		};
 
 		ethernet-ports {
 			#address-cells = <1>;

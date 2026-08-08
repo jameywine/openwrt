@@ -1,0 +1,216 @@
+From b0a25e12ad4ce15c346a40ddcc8b18fb1671e95e Mon Sep 17 00:00:00 2001
+From: Rustam Adilov <adilov@disroot.org>
+Date: Mon, 23 Mar 2026 14:35:38 +0500
+Subject: [PATCH v6 1/6] phy: realtek: usb2: introduce vstatus/new_reg_req
+ variables to driver data
+
+In RTL9607C SoC, the vstatus register is located at a certain offset from
+the base and so introduce the vstatus_offset to handle it.
+
+Busy bit of the vstatus and new_reg_req bit are also different and so
+introduce these variables to the driver data as well.
+
+Add these variables to the pre-existing phy cfg structs for RTD SoCs and
+assign them the default values.
+
+Co-developed-by: Michael Zavertkin <misha.zavertkin@mail.ru>
+Signed-off-by: Michael Zavertkin <misha.zavertkin@mail.ru>
+Signed-off-by: Rustam Adilov <adilov@disroot.org>
+---
+ drivers/phy/realtek/phy-rtk-usb2.c | 68 +++++++++++++++++++++++-------
+ 1 file changed, 53 insertions(+), 15 deletions(-)
+
+--- a/drivers/phy/realtek/phy-rtk-usb2.c
++++ b/drivers/phy/realtek/phy-rtk-usb2.c
+@@ -64,6 +64,9 @@ struct phy_reg {
+ 	void __iomem *reg_wrap_vstatus;
+ 	void __iomem *reg_gusb2phyacc0;
+ 	int vstatus_index;
++	int vstatus_offset;
++	u32 vstatus_busy;
++	u32 new_reg_req;
+ };
+ 
+ struct phy_data {
+@@ -96,6 +99,9 @@ struct phy_cfg {
+ 	bool do_toggle_driving;
+ 	bool use_default_parameter;
+ 	bool is_double_sensitivity_mode;
++	int vstatus_offset;
++	u32 vstatus_busy;
++	u32 new_reg_req;
+ };
+ 
+ struct phy_parameter {
+@@ -162,21 +168,21 @@ static char rtk_phy_read(struct phy_reg
+ 	addr -= OFFEST_PHY_READ;
+ 
+ 	/* polling until VBusy == 0 */
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	ret = utmi_wait_register(reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return (char)ret;
+ 
+-	/* VCtrl = low nibble of addr, and set PHY_NEW_REG_REQ */
+-	val = PHY_NEW_REG_REQ | (GET_LOW_NIBBLE(addr) << PHY_VCTRL_SHIFT);
++	/* VCtrl = low nibble of addr, and set phy_reg->new_reg_req */
++	val = phy_reg->new_reg_req | (GET_LOW_NIBBLE(addr) << PHY_VCTRL_SHIFT);
+ 	writel(val, reg_gusb2phyacc0);
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	ret = utmi_wait_register(reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return (char)ret;
+ 
+-	/* VCtrl = high nibble of addr, and set PHY_NEW_REG_REQ */
+-	val = PHY_NEW_REG_REQ | (GET_HIGH_NIBBLE(addr) << PHY_VCTRL_SHIFT);
++	/* VCtrl = high nibble of addr, and set phy_reg->new_reg_req */
++	val = phy_reg->new_reg_req | (GET_HIGH_NIBBLE(addr) << PHY_VCTRL_SHIFT);
+ 	writel(val, reg_gusb2phyacc0);
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	ret = utmi_wait_register(reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return (char)ret;
+ 
+@@ -194,25 +200,26 @@ static int rtk_phy_write(struct phy_reg
+ 	int ret = 0;
+ 
+ 	/* write data to VStatusOut2 (data output to phy) */
+-	writel((u32)data << shift_bits, reg_wrap_vstatus);
++	writel((u32)data << shift_bits,
++	       reg_wrap_vstatus + phy_reg->vstatus_offset);
+ 
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	ret = utmi_wait_register(reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return ret;
+ 
+-	/* VCtrl = low nibble of addr, set PHY_NEW_REG_REQ */
+-	val = PHY_NEW_REG_REQ | (GET_LOW_NIBBLE(addr) << PHY_VCTRL_SHIFT);
++	/* VCtrl = low nibble of addr, set phy_reg->new_reg_req */
++	val = phy_reg->new_reg_req | (GET_LOW_NIBBLE(addr) << PHY_VCTRL_SHIFT);
+ 
+ 	writel(val, reg_gusb2phyacc0);
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	ret = utmi_wait_register(reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return ret;
+ 
+-	/* VCtrl = high nibble of addr, set PHY_NEW_REG_REQ */
+-	val = PHY_NEW_REG_REQ | (GET_HIGH_NIBBLE(addr) << PHY_VCTRL_SHIFT);
++	/* VCtrl = high nibble of addr, set phy_reg->new_reg_req */
++	val = phy_reg->new_reg_req | (GET_HIGH_NIBBLE(addr) << PHY_VCTRL_SHIFT);
+ 
+ 	writel(val, reg_gusb2phyacc0);
+-	ret = utmi_wait_register(reg_gusb2phyacc0, PHY_VSTS_BUSY, 0);
++	ret = utmi_wait_register(reg_gusb2phyacc0, phy_reg->vstatus_busy, 0);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -957,6 +964,7 @@ out:
+ 
+ static int parse_phy_data(struct rtk_phy *rtk_phy)
+ {
++	struct phy_cfg *phy_cfg = rtk_phy->phy_cfg;
+ 	struct device *dev = rtk_phy->dev;
+ 	struct device_node *np = dev->of_node;
+ 	struct phy_parameter *phy_parameter;
+@@ -974,6 +982,9 @@ static int parse_phy_data(struct rtk_phy
+ 		phy_parameter->phy_reg.reg_wrap_vstatus = of_iomap(np, 0);
+ 		phy_parameter->phy_reg.reg_gusb2phyacc0 = of_iomap(np, 1) + index;
+ 		phy_parameter->phy_reg.vstatus_index = index;
++		phy_parameter->phy_reg.vstatus_offset = phy_cfg->vstatus_offset;
++		phy_parameter->phy_reg.vstatus_busy = phy_cfg->vstatus_busy;
++		phy_parameter->phy_reg.new_reg_req = phy_cfg->new_reg_req;
+ 
+ 		if (of_property_read_bool(np, "realtek,inverse-hstx-sync-clock"))
+ 			phy_parameter->inverse_hstx_sync_clock = true;
+@@ -1085,6 +1096,9 @@ static const struct phy_cfg rtd1295_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = false,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
+ };
+ 
+ static const struct phy_cfg rtd1395_phy_cfg = {
+@@ -1109,6 +1123,9 @@ static const struct phy_cfg rtd1395_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = false,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
+ };
+ 
+ static const struct phy_cfg rtd1395_phy_cfg_2port = {
+@@ -1133,6 +1150,9 @@ static const struct phy_cfg rtd1395_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = false,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
+ };
+ 
+ static const struct phy_cfg rtd1619_phy_cfg = {
+@@ -1155,6 +1175,9 @@ static const struct phy_cfg rtd1619_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = false,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
+ };
+ 
+ static const struct phy_cfg rtd1319_phy_cfg = {
+@@ -1181,6 +1204,9 @@ static const struct phy_cfg rtd1319_phy_
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
+ };
+ 
+ static const struct phy_cfg rtd1312c_phy_cfg = {
+@@ -1206,6 +1232,9 @@ static const struct phy_cfg rtd1312c_phy
+ 	.driving_updated_for_dev_dis = 0xf,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
+ };
+ 
+ static const struct phy_cfg rtd1619b_phy_cfg = {
+@@ -1231,6 +1260,9 @@ static const struct phy_cfg rtd1619b_phy
+ 	.driving_updated_for_dev_dis = 0x8,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
+ };
+ 
+ static const struct phy_cfg rtd1319d_phy_cfg = {
+@@ -1256,6 +1288,9 @@ static const struct phy_cfg rtd1319d_phy
+ 	.driving_updated_for_dev_dis = 0x8,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
+ };
+ 
+ static const struct phy_cfg rtd1315e_phy_cfg = {
+@@ -1282,6 +1317,9 @@ static const struct phy_cfg rtd1315e_phy
+ 	.driving_updated_for_dev_dis = 0x8,
+ 	.use_default_parameter = false,
+ 	.is_double_sensitivity_mode = true,
++	.vstatus_offset = 0,
++	.vstatus_busy = PHY_VSTS_BUSY,
++	.new_reg_req = PHY_NEW_REG_REQ,
+ };
+ 
+ static const struct of_device_id usbphy_rtk_dt_match[] = {

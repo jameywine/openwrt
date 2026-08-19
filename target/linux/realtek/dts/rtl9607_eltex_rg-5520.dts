@@ -8,11 +8,17 @@
 #include <dt-bindings/leds/common.h>
 
 / {
-	compatible = "bt-pon,bt-g711ax", "realtek,rtl9607-soc";
+	compatible = "eltex,rg-5520", "realtek,rtl9607-soc";
 
-	model = "BT-PON BT-G711AX";
+	model = "Eltex RG-5520";
 
 	aliases {
+		label-mac-device = &gmac0;
+	};
+
+#if 0
+	aliases {
+		label-mac-device = &ethernet0;
 		led-boot = &led_power;
 		led-failsafe = &led_power;
 		led-running = &led_power;
@@ -116,6 +122,7 @@
 			gpios = <&gpio1 24 GPIO_ACTIVE_HIGH>;
 		};
 	};
+	#endif
 };
 
 &switch0 {
@@ -125,6 +132,11 @@
 		SWITCH_PORT(2, 3, internal)
 		SWITCH_PORT(3, 4, internal)
 	};
+};
+
+&gmac0 {
+	nvmem-cells = <&macaddr_factory 0>;
+	nvmem-cell-names = "mac-address";
 };
 
 &pinmux {
@@ -138,15 +150,6 @@
 
 	pinmux_gpio1_leds: gpio1-leds {
 		pinctrl-single,bits = <0x4 0x1000048 0x1000048>;
-	};
-};
-
-&i2c_mst1 {
-	status = "okay";
-
-	/* i2c of the Laser Driver */
-	i2c0: i2c@0 {
-		reg = <0>;
 	};
 };
 
@@ -172,31 +175,61 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
+#if 1
 			partition@0 {
 				label = "u-boot";
-				reg = <0x0 0xe0000>;
+				reg = <0x0 0xc0000>;
 				read-only;
 			};
 
+			partition@c0000 {
+				label = "factory";
+				reg = <0xc0000 0x20000>;
+				read-only;
+
+				nvmem-layout {
+					compatible = "fixed-layout";
+					#address-cells = <1>;
+					#size-cells = <1>;
+
+					macaddr_factory: macaddr@64 {
+						compatible = "mac-base";
+						reg = <0x64 0x11>;
+						#nvmem-cell-cells = <1>;
+					};
+				};
+			};
+
 			partition@e0000 {
+				compatible = "u-boot,env-redundant-count";
 				label = "u-boot-env";
 				reg = <0xe0000 0x20000>;
 			};
 
 			partition@100000 {
+				compatible = "u-boot,env-redundant-count";
 				label = "u-boot-env2";
 				reg = <0x100000 0x20000>;
 			};
 
 			partition@120000 {
-				label = "static_conf";
-				reg = <0x120000 0x20000>;
+				label = "ubi";
+				reg = <0x120000 0x7940000>;
 			};
 
 			partition@140000 {
-				label = "ubi";
-				reg = <0x140000 0x7c40000>;
+				label = "mtdoops";
+				reg = <0x7a40000 0x200000>;
+				read-only;
 			};
+#else
+			// For full flash dump
+			partition@0 {
+				label = "flash";
+				reg = <0x0 0x8000000>;
+				read-only;
+			};
+#endif
 		};
 	};
 };

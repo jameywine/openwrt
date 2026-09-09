@@ -330,6 +330,12 @@
 			compatible = "realtek,rtl9607-thermal";
 			#thermal-sensor-cells = <0>;
 		};
+
+		otp {
+			compatible = "realtek,rtl9607c-gen2-otp"
+
+			#nvmem-cell-cells = <0>;
+		}
 	};
 
 	pinmux: pinmux@1b000038 {

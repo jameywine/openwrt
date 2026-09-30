@@ -1,0 +1,48 @@
+diff --git a/arch/mips/kernel/setup.c b/arch/mips/kernel/setup.c
+index 11b9b6b63e19..89a82c76a977 100644
+--- a/arch/mips/kernel/setup.c
++++ b/arch/mips/kernel/setup.c
+@@ -602,6 +602,43 @@ static void __init bootcmdline_init(void)
+ 	if (IS_ENABLED(CONFIG_CMDLINE_BOOL) &&
+ 	    !IS_ENABLED(CONFIG_MIPS_CMDLINE_BUILTIN_EXTEND))
+ 		bootcmdline_append(builtin_cmdline, COMMAND_LINE_SIZE);
++	// PoC. To be reworked
++	printk("%s:%d arcs_cmdline: %s\n", __func__, __LINE__, arcs_cmdline);
++	{
++		char *replace = boot_command_line;
++		while((replace = strstr(replace, "replace="))){
++			char buf[256];
++			char *val = replace + strlen("replace=");
++			char *to_replace = strchr(val, '|');
++			char *end = strchr(val, ' ');
++
++			if (!end) {
++				end = val + strlen(val);
++			}
++
++			if (!to_replace || to_replace > end) {
++				printk("WTF\n");
++				break;
++			}
++
++			memcpy(buf, val, to_replace - val);
++			buf[to_replace - val] = 0;
++
++			if (strstr(arcs_cmdline, buf)) {
++				to_replace++;
++				memcpy(buf, to_replace, end - to_replace);
++				buf[end - to_replace] = 0;
++				
++				printk("Appending '%s'\n", buf);
++				bootcmdline_append(buf, COMMAND_LINE_SIZE);
++			} else {
++				printk("'%s' not found\n", buf);
++			}
++
++			memset(replace, ' ', end - replace);
++			replace = end;
++		}
++	}
+ }
+ 
+ /*

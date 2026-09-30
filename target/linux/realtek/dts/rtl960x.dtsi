@@ -54,8 +54,13 @@
 	};
 
 	chosen {
-		bootargs = "earlycon";
+		// PoC. root=254:0 is first UBI block, created by ubi.block
+		// root=31:x is value from bootloader. Board-dependent
+		bootargs = "earlycon root=254:0 replace=root=31:8|ubi.block=0,ubi_r0 replace=root=31:10|ubi.block=0,ubi_r1";
 		stdout-path = "serial0:115200n8";
+		// Final version should look like that:
+		// replace-cmdline = "root=31:8", "ubi.block=0,ubi_r0";
+		// replace-cmdline = "root=31:10", "ubi.block=0,ubi_r1";
 	};
 
 	cpc: cpc@1bde0000 {

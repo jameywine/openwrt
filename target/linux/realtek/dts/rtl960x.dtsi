@@ -339,6 +339,13 @@
 		table {
 			compatible = "realtek,rtl9607c-table", "realtek,otto-table";
 		};
+
+		otp@18 {
+			compatible = "realtek,rtl9607c-gen2-otp";
+			reg = <0x18 0xc>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
 	};
 
 	pinmux: pinmux@1b000038 {

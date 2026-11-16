@@ -22,7 +22,6 @@
 #define   RTMDIO_960X_CFG_PREAMBLE_SET0_EN	BIT(4)
 #define   RTMDIO_960X_CFG_PREAMBLE_SET1_EN	BIT(5)
 #define RTMDIO_960X_CFG_POLL_CTRL_0		(0x2302C)
-// TODO try different values with logic analyzer
 #define   RTMDIO_960X_SMI_FMT_SET0		GENMASK(1, 0)
 #define   RTMDIO_960X_SMI_FMT_SET1		GENMASK(3, 2)
 #define   RTMDIO_960X_SMI_FMT_C22		0
@@ -52,6 +51,7 @@
 #define RTMDIO_960X_IO_MODE_EN			(0x23014)
 #define   RTMDIO_960X_IO_MDIO_SET0_EN		BIT(10)
 #define   RTMDIO_960X_IO_MDIO_SET1_EN		BIT(11)
+//
 // Master bits doesn't do anything?
 //#define   RTMDIO_960X_IO_MDIO_SET0_MASTER	BIT(8)
 //#define   RTMDIO_960X_IO_MDIO_SET1_MASTER	BIT(9)
@@ -244,6 +244,8 @@ static void rtmdio_960x_init(struct mii_bus *bus)
 		regmap_update_bits(ctrl->map, RTMDIO_960X_CFG_POLL_MDX_CTRL, RTMDIO_960X_CFG_MDC_SET0_EN | RTMDIO_960X_CFG_PREAMBLE_SET0_EN, RTMDIO_960X_CFG_MDC_SET0_EN);
 		break;
 	case 1:
+		// Set 1 not tested?
+		// TODO figure out again what's the deal with sets
 		regmap_set_bits(ctrl->map, RTMDIO_960X_IO_MODE_EN, RTMDIO_960X_IO_MDIO_SET1_EN);
 		regmap_update_bits(ctrl->map, RTMDIO_960X_CFG_POLL_MDX_CTRL, RTMDIO_960X_CFG_MDC_SET1_EN | RTMDIO_960X_CFG_PREAMBLE_SET1_EN, RTMDIO_960X_CFG_MDC_SET1_EN);
 		break;
@@ -267,6 +269,9 @@ static int rtmdio_probe_bus(struct device *dev, struct rtmdio_ctrl *ctrl, struct
 		return dev_err_probe(dev, ret, "%pfwP no bus number\n", fw_bus);
 	if (bus_id >= RTMDIO_MAX_SMI_BUS)
 		return dev_err_probe(dev, -EINVAL, "%pfwP illegal bus number\n", fw_bus);
+
+	
+	printk("%s:%d registering bus %d\n", __func__, __LINE__, bus_id);
 
 	bus = devm_mdiobus_alloc_size(dev, sizeof(*chan));
 	if (!bus)
@@ -297,6 +302,8 @@ static int rtmdio_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct rtmdio_ctrl *ctrl;
 	int ret;
+
+	printk("%s:%d MY PROBE!!!!!\n", __func__, __LINE__);
 
 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
 	if (!ctrl)
@@ -332,7 +339,7 @@ static const struct rtmdio_config rtmdio_960x_ext_cfg = {
 
 static const struct of_device_id rtmdio_ids[] = {
 	{
-		.compatible = "realtek,rtl9607-ext-mdio",
+		.compatible = "realtek,rtl9607c-ext-mdio",
 		.data = &rtmdio_960x_ext_cfg,
 	},
 	{ /* sentinel */ }

@@ -803,6 +803,20 @@ static void rtl960x_dsa_phylink_get_caps(struct dsa_switch *ds, int port,
 		config->mac_capabilities = MAC_1000FD;
 		break;
 
+	case 6:
+		__set_bit(PHY_INTERFACE_MODE_SGMII,
+			  config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_1000BASEX,
+			  config->supported_interfaces);
+		// TODO HSGMII?
+		__set_bit(PHY_INTERFACE_MODE_2500BASEX,
+			  config->supported_interfaces);
+
+		// TODO figure out PHYLINK_PCS_NEG_*
+		config->mac_capabilities = MAC_SYM_PAUSE | MAC_ASYM_PAUSE |
+					   MAC_10 | MAC_100 | MAC_1000FD | MAC_2500FD;
+		break;
+
 	/*
 	 * Port 5 (PON SerDes) and ports 6 and 7 (HSGMII SerDes) need SerDes
 	 * configuration this driver does not implement; port 7 as the GMAC2
@@ -830,12 +844,18 @@ static void rtl960x_dsa_mac_config(struct phylink_config *config,
 				   unsigned int mode,
 				   const struct phylink_link_state *state)
 {
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	printk("\n%s:%d Enter!\n", __func__, __LINE__);
+	printk("Config: dev %s\n", dp->name);
 }
 
 static void rtl960x_dsa_mac_link_down(struct phylink_config *config,
 				      unsigned int mode,
 				      phy_interface_t interface)
 {
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	printk("\n%s:%d Enter!\n", __func__, __LINE__);
+	printk("Config: dev %s\n", dp->name);
 }
 
 static void rtl960x_dsa_mac_link_up(struct phylink_config *config,
@@ -845,6 +865,9 @@ static void rtl960x_dsa_mac_link_up(struct phylink_config *config,
 				    int speed, int duplex,
 				    bool tx_pause, bool rx_pause)
 {
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	printk("\n%s:%d Enter!\n", __func__, __LINE__);
+	printk("Config: dev %s\n", dp->name);
 	/*
 	 * The internal GPHYs and the switch MAC sync speed/duplex in hardware,
 	 * so nothing to program here; phylink uses the PHY link state to drive

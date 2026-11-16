@@ -202,7 +202,10 @@
 	PHY_C22(3, 3)
 };
 
-&mdio_ext_ctrl {
+&ext_mdio0 {
+	status = "okay";
+
+#if 0 // MDIO test
 	phy6: ethernet-phy@6 {
 		reg = <6>;
 		// Needed to... identification while in reset?..
@@ -214,8 +217,7 @@
 		reset-deassert-us = <70000>; /* at least 68ms */
 		reset-assert-us = <15000>; /* 15ms */
 	};
-
-	status = "okay";
+#endif
 };
 
 &switch0 {
@@ -225,9 +227,17 @@
 		SWITCH_PORT(2, 2, internal)
 		SWITCH_PORT(3, 1, internal)
 
+#if 0 // MDIO test
 		// Port6 - HSGMII, WAN
-		// TODO - serdes
-		SWITCH_PORT(6, 7, hsgmii)
+		// TODO - serdes. Maybe after PCS handle
+		//SWITCH_PORT(6, 7, hsgmii)
+		port_wan: port@6 {
+			reg = <6>;
+			label = "wan";
+			phy-handle = <&phy6>;
+			phy-mode = "hsgmii" ;
+		};
+#endif
 	};
 };
 

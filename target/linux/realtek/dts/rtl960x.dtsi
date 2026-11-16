@@ -350,17 +350,32 @@
 
 
 		mdio_ext_ctrl: mdio-controller@1 {
-			compatible = "realtek,rtl9607-ext-mdio";
+			compatible = "realtek,rtl9607c-ext-mdio";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mdio_bus1: mdio-bus@0 {
+			ext_mdio0: mdio-bus@0 {
 				reg = <0>;
 				#address-cells = <1>;
 				#size-cells = <0>;
+
+				pinctrl-0 = <&pinmux_mdio0>;
+				pinctrl-names = "default";
+
+				status = "disabled";
 			};
 
-			status = "disabled";
+			// WASN'T TESTED!!!!
+			ext_mdio1: mdio-bus@1 {
+				reg = <1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pinctrl-0 = <&pinmux_mdio1>;
+				pinctrl-names = "default";
+
+				status = "disabled";
+			};
 		};
 
 		soc_thermal: thermal {
@@ -393,6 +408,14 @@
 			pinmux_i2c1: i2c1 {
 				function = "i2c1";
 				groups = "i2c1";
+			};
+			pinmux_mdio0: mdio0 {
+				function = "mdio0";
+				groups = "mdio0";
+			};
+			pinmux_mdio1: mdio1 {
+				function = "mdio1";
+				groups = "mdio1";
 			};
 
 			pinmux_spi_qio: spi-qio {

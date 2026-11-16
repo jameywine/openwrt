@@ -205,7 +205,7 @@
 &ext_mdio0 {
 	status = "okay";
 
-#if 0 // MDIO test
+#if 1 // MDIO test
 	phy6: ethernet-phy@6 {
 		reg = <6>;
 		// Needed to... identification while in reset?..
